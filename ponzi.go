@@ -1,7 +1,14 @@
 package main
 
-import "fmt"
+import (
+	"log"
+
+	"github.com/nsf/termbox-go"
+)
 
 func main() {
-	fmt.Printf("Hello, world.\n")
+	if err := termbox.Init(); err != nil {
+		log.Fatalf("termbox.Init: %v", err)
+	}
+	defer termbox.Close()
 }
