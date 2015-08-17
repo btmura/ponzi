@@ -6,6 +6,8 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/nsf/termbox-go"
 )
@@ -16,7 +18,7 @@ func main() {
 		log.Fatalf("getPriceData: %v", err)
 	}
 
-	fmt.Printf("%s", pd[0].close)
+	fmt.Printf("%+v", pd[0])
 
 	return
 
@@ -49,12 +51,12 @@ loop:
 }
 
 type price struct {
-	date   string
-	open   string
-	high   string
-	low    string
-	close  string
-	volume string
+	date   time.Time
+	open   float64
+	high   float64
+	low    float64
+	close  float64
+	volume int64
 }
 
 func getPriceData(symbol string) ([]price, error) {
@@ -82,13 +84,55 @@ func getPriceData(symbol string) ([]price, error) {
 
 		// skip header row
 		if i != 0 {
+			parseRecordTime := func(i int) (time.Time, error) {
+				return time.Parse("2-Jan-06", record[i])
+			}
+
+			parseRecordFloat := func(i int) (float64, error) {
+				return strconv.ParseFloat(record[i], 64)
+			}
+
+			parseRecordInt := func(i int) (int64, error) {
+				return strconv.ParseInt(record[i], 10, 64)
+			}
+
+			date, err := parseRecordTime(0)
+			if err != nil {
+				return nil, err
+			}
+
+			open, err := parseRecordFloat(1)
+			if err != nil {
+				return nil, err
+			}
+
+			high, err := parseRecordFloat(2)
+			if err != nil {
+				return nil, err
+			}
+
+			low, err := parseRecordFloat(3)
+			if err != nil {
+				return nil, err
+			}
+
+			close, err := parseRecordFloat(4)
+			if err != nil {
+				return nil, err
+			}
+
+			volume, err := parseRecordInt(5)
+			if err != nil {
+				return nil, err
+			}
+
 			pd = append(pd, price{
-				date:   record[0],
-				open:   record[1],
-				high:   record[2],
-				low:    record[3],
-				close:  record[4],
-				volume: record[5],
+				date:   date,
+				open:   open,
+				high:   high,
+				low:    low,
+				close:  close,
+				volume: volume,
 			})
 		}
 	}
