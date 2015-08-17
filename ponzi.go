@@ -1,8 +1,9 @@
 package main
 
 import (
+	"encoding/csv"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 
@@ -10,6 +11,15 @@ import (
 )
 
 func main() {
+	pd, err := getPriceData("SPY")
+	if err != nil {
+		log.Fatalf("getPriceData: %v", err)
+	}
+
+	fmt.Printf("%s", pd[0].close)
+
+	return
+
 	if err := termbox.Init(); err != nil {
 		log.Fatalf("termbox.Init: %v", err)
 	}
@@ -36,23 +46,52 @@ loop:
 			}
 		}
 	}
-
-	if err := getPriceData("SPY"); err != nil {
-		log.Fatalf("getPriceData: %v", err)
-	}
 }
 
-func getPriceData(symbol string) error {
+type price struct {
+	date   string
+	open   string
+	high   string
+	low    string
+	close  string
+	volume string
+}
+
+func getPriceData(symbol string) ([]price, error) {
 	resp, err := http.Get(fmt.Sprintf("http://www.google.com/finance/historical?q=%s&&output=csv", symbol))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return err
+	var pd []price
+	r := csv.NewReader(resp.Body)
+	for i := 0; ; i++ {
+		record, err := r.Read()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, err
+		}
+
+		// format: Date, Open, High, Low, Close, Volume
+		if len(record) != 6 {
+			return nil, fmt.Errorf("record length should be 6, got %d", len(record))
+		}
+
+		// skip header row
+		if i != 0 {
+			pd = append(pd, price{
+				date:   record[0],
+				open:   record[1],
+				high:   record[2],
+				low:    record[3],
+				close:  record[4],
+				volume: record[5],
+			})
+		}
 	}
-	fmt.Printf("data: %s", body)
-	return nil
+
+	return pd, nil
 }
