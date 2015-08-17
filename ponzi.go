@@ -20,10 +20,6 @@ func main() {
 		log.Fatalf("getPriceData: %v", err)
 	}
 
-	fmt.Printf("%+v", pd[0])
-
-	return
-
 	if err := termbox.Init(); err != nil {
 		log.Fatalf("termbox.Init: %v", err)
 	}
@@ -33,11 +29,20 @@ func main() {
 		log.Fatalf("termbox.Clear: %v", err)
 	}
 
+	printTerm := func(x, y int, format string, a ...interface{}) {
+		for _, rune := range fmt.Sprintf(format, a...) {
+			termbox.SetCell(x, y, rune, termbox.ColorDefault, termbox.ColorDefault)
+			x++
+		}
+	}
+
+	sort.Reverse(priceData(pd))
+
 loop:
 	for {
-		termbox.SetCell(0, 0, 'S', termbox.ColorDefault, termbox.ColorDefault)
-		termbox.SetCell(1, 0, 'P', termbox.ColorDefault, termbox.ColorDefault)
-		termbox.SetCell(2, 0, 'Y', termbox.ColorDefault, termbox.ColorDefault)
+		if len(pd) > 0 {
+			printTerm(0, 0, "SPY %s %.2f", pd[0].date.Format("1/2/06"), pd[0].close)
+		}
 
 		if err := termbox.Flush(); err != nil {
 			log.Fatalf("termbox.Flush: %v", err)
@@ -63,19 +68,22 @@ type price struct {
 
 type priceData []price
 
+// Len implements sort.Interface.
 func (pd priceData) Len() int {
 	return len(pd)
 }
 
+// Less implements sort.Interface.
 func (pd priceData) Less(i, j int) bool {
 	return pd[i].date.Before(pd[j].date)
 }
 
+// Swap implements sort.Interface.
 func (pd priceData) Swap(i, j int) {
 	pd[i], pd[j] = pd[j], pd[i]
 }
 
-func getPriceData(symbol string, startDate time.Time, endDate time.Time) (priceData, error) {
+func getPriceData(symbol string, startDate time.Time, endDate time.Time) ([]price, error) {
 	formatTime := func(date time.Time) string {
 		return date.Format("Jan/02/06")
 	}
@@ -99,7 +107,7 @@ func getPriceData(symbol string, startDate time.Time, endDate time.Time) (priceD
 	}
 	defer resp.Body.Close()
 
-	var pd priceData
+	var pd []price
 	r := csv.NewReader(resp.Body)
 	for i := 0; ; i++ {
 		record, err := r.Read()
@@ -169,8 +177,6 @@ func getPriceData(symbol string, startDate time.Time, endDate time.Time) (priceD
 			})
 		}
 	}
-
-	sort.Sort(pd)
 
 	return pd, nil
 }
