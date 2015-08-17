@@ -15,33 +15,37 @@ import (
 )
 
 func main() {
-	pd, err := getPriceData("SPY", time.Now().Add(time.Hour*24*5), time.Now())
-	if err != nil {
-		log.Fatalf("getPriceData: %v", err)
-	}
-
 	if err := termbox.Init(); err != nil {
 		log.Fatalf("termbox.Init: %v", err)
 	}
 	defer termbox.Close()
 
-	if err := termbox.Clear(termbox.ColorDefault, termbox.ColorDefault); err != nil {
-		log.Fatalf("termbox.Clear: %v", err)
+	stocks := []*stock{
+		newStock("SPY"),
+		newStock("XOM"),
 	}
-
-	printTerm := func(x, y int, format string, a ...interface{}) {
-		for _, rune := range fmt.Sprintf(format, a...) {
-			termbox.SetCell(x, y, rune, termbox.ColorDefault, termbox.ColorDefault)
-			x++
-		}
-	}
-
-	sort.Reverse(priceData(pd))
 
 loop:
 	for {
-		if len(pd) > 0 {
-			printTerm(0, 0, "SPY %s %.2f", pd[0].date.Format("1/2/06"), pd[0].close)
+		for _, stock := range stocks {
+			if err := stock.update(); err != nil {
+				log.Fatalf("stock.update: %v", err)
+			}
+		}
+
+		if err := termbox.Clear(termbox.ColorDefault, termbox.ColorDefault); err != nil {
+			log.Fatalf("termbox.Clear: %v", err)
+		}
+
+		printTerm := func(x, y int, format string, a ...interface{}) {
+			for _, rune := range fmt.Sprintf(format, a...) {
+				termbox.SetCell(x, y, rune, termbox.ColorDefault, termbox.ColorDefault)
+				x++
+			}
+		}
+
+		for i, stock := range stocks {
+			printTerm(0, i, "%s %s %.2f", stock.symbol, stock.price.date.Format("1/2/06"), stock.price.close)
 		}
 
 		if err := termbox.Flush(); err != nil {
@@ -55,6 +59,27 @@ loop:
 			}
 		}
 	}
+}
+
+type stock struct {
+	symbol string
+	price  price
+}
+
+func newStock(symbol string) *stock {
+	return &stock{symbol: symbol}
+}
+
+func (s *stock) update() error {
+	pd, err := getPriceData(s.symbol, time.Now().Add(time.Hour*24*5), time.Now())
+	if err != nil {
+		return err
+	}
+	if len(pd) > 0 {
+		sort.Reverse(pd)
+		s.price = pd[0]
+	}
+	return nil
 }
 
 type price struct {
@@ -83,7 +108,7 @@ func (pd priceData) Swap(i, j int) {
 	pd[i], pd[j] = pd[j], pd[i]
 }
 
-func getPriceData(symbol string, startDate time.Time, endDate time.Time) ([]price, error) {
+func getPriceData(symbol string, startDate time.Time, endDate time.Time) (priceData, error) {
 	formatTime := func(date time.Time) string {
 		return date.Format("Jan/02/06")
 	}
