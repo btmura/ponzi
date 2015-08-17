@@ -27,7 +27,9 @@ func main() {
 
 	symbols := []string{
 		"SPY",
+		"MO",
 		"XOM",
+		"DIG",
 	}
 
 	priceChannels := make(map[string]chan price)
@@ -70,22 +72,35 @@ loop:
 			log.Fatalf("termbox.Clear: %v", err)
 		}
 
-		printTerm := func(x, y int, format string, a ...interface{}) {
+		printTerm := func(x, y int, fg, bg termbox.Attribute, format string, a ...interface{}) {
 			for _, rune := range fmt.Sprintf(format, a...) {
-				termbox.SetCell(x, y, rune, termbox.ColorDefault, termbox.ColorDefault)
+				termbox.SetCell(x, y, rune, fg, bg)
 				x++
 			}
 		}
 
 		rt := <-refreshTimeChannel
 		if rt != nil {
-			printTerm(0, 0, rt.Format("1/2/06 3:4 PM"))
+			printTerm(0, 0, termbox.ColorDefault, termbox.ColorDefault, rt.Format("1/2/06 3:4 PM"))
 		}
 		refreshTimeChannel <- rt
 
 		for i, symbol := range symbols {
 			p := <-priceChannels[symbol]
-			printTerm(0, i+1, "%s %s %.2f", symbol, p.date.Format("1/2/06"), p.close)
+
+			var fg termbox.Attribute
+			switch {
+			case p.close > p.open:
+				fg = termbox.ColorGreen
+
+			case p.open > p.close:
+				fg = termbox.ColorRed
+
+			default:
+				fg = termbox.ColorDefault
+			}
+
+			printTerm(0, i+1, fg, termbox.ColorDefault, "%-10s %-10s %10.2f %+10.2f", symbol, p.date.Format("1/2/06"), p.close, p.close-p.open)
 			priceChannels[symbol] <- p
 		}
 
