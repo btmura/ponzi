@@ -46,16 +46,23 @@ func main() {
 			rt := time.Now()
 
 			for symbol, ch := range priceChannels {
+				p := price{}
+
 				pd, err := getPriceData(symbol, time.Now().Add(time.Hour*24*5), time.Now())
-				if err != nil {
+				switch {
+				case err != nil:
 					log.Printf("getPriceData(%s): %v", symbol, err)
-					continue
-				}
-				if len(pd) > 0 {
+
+				case len(pd) == 0:
+					log.Printf("no price data for %s", symbol)
+
+				default:
 					sort.Reverse(pd)
-					<-ch
-					ch <- pd[0]
+					p = pd[0]
 				}
+
+				<-ch
+				ch <- p
 			}
 
 			<-refreshTimeChannel
