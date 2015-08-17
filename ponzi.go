@@ -20,19 +20,52 @@ func main() {
 	}
 	defer termbox.Close()
 
-	stocks := []*stock{
-		newStock("SPY"),
-		newStock("XOM"),
+	// TODO(btmura): use a single a channel
+
+	refreshTimeChannel := make(chan *time.Time, 1)
+	refreshTimeChannel <- nil
+
+	symbols := []string{
+		"SPY",
+		"XOM",
 	}
+
+	priceChannels := make(map[string]chan price)
+	for _, symbol := range symbols {
+		if _, ok := priceChannels[symbol]; !ok {
+			ch := make(chan price, 1)
+			ch <- price{}
+			priceChannels[symbol] = ch
+		}
+	}
+
+	go func() {
+		for {
+			rt := time.Now()
+
+			for symbol, ch := range priceChannels {
+				pd, err := getPriceData(symbol, time.Now().Add(time.Hour*24*5), time.Now())
+				if err != nil {
+					log.Printf("getPriceData(%s): %v", symbol, err)
+					continue
+				}
+				if len(pd) > 0 {
+					sort.Reverse(pd)
+					<-ch
+					ch <- pd[0]
+				}
+			}
+
+			<-refreshTimeChannel
+			refreshTimeChannel <- &rt
+
+			termbox.Interrupt()
+			time.Sleep(time.Hour)
+		}
+	}()
 
 loop:
 	for {
-		for _, stock := range stocks {
-			if err := stock.update(); err != nil {
-				log.Fatalf("stock.update: %v", err)
-			}
-		}
-
 		if err := termbox.Clear(termbox.ColorDefault, termbox.ColorDefault); err != nil {
 			log.Fatalf("termbox.Clear: %v", err)
 		}
@@ -44,8 +77,16 @@ loop:
 			}
 		}
 
-		for i, stock := range stocks {
-			printTerm(0, i, "%s %s %.2f", stock.symbol, stock.price.date.Format("1/2/06"), stock.price.close)
+		rt := <-refreshTimeChannel
+		if rt != nil {
+			printTerm(0, 0, rt.Format("1/2/06 3:4 PM"))
+		}
+		refreshTimeChannel <- rt
+
+		for i, symbol := range symbols {
+			p := <-priceChannels[symbol]
+			printTerm(0, i+1, "%s %s %.2f", symbol, p.date.Format("1/2/06"), p.close)
+			priceChannels[symbol] <- p
 		}
 
 		if err := termbox.Flush(); err != nil {
@@ -59,27 +100,6 @@ loop:
 			}
 		}
 	}
-}
-
-type stock struct {
-	symbol string
-	price  price
-}
-
-func newStock(symbol string) *stock {
-	return &stock{symbol: symbol}
-}
-
-func (s *stock) update() error {
-	pd, err := getPriceData(s.symbol, time.Now().Add(time.Hour*24*5), time.Now())
-	if err != nil {
-		return err
-	}
-	if len(pd) > 0 {
-		sort.Reverse(pd)
-		s.price = pd[0]
-	}
-	return nil
 }
 
 type price struct {
