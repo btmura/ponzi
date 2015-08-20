@@ -32,11 +32,11 @@ func main() {
 		"DIG",
 	}
 
-	priceChannels := make(map[string]chan price)
+	priceChannels := make(map[string]chan tradingSession)
 	for _, symbol := range symbols {
 		if _, ok := priceChannels[symbol]; !ok {
-			ch := make(chan price, 1)
-			ch <- price{}
+			ch := make(chan tradingSession, 1)
+			ch <- tradingSession{}
 			priceChannels[symbol] = ch
 		}
 	}
@@ -46,7 +46,7 @@ func main() {
 			rt := time.Now()
 
 			for symbol, ch := range priceChannels {
-				p := price{}
+				p := tradingSession{}
 
 				pd, err := getPriceData(symbol, time.Now().Add(time.Hour*24*5), time.Now())
 				switch {
@@ -54,7 +54,7 @@ func main() {
 					log.Printf("getPriceData(%s): %v", symbol, err)
 
 				case len(pd) == 0:
-					log.Printf("no price data for %s", symbol)
+					log.Printf("no tradingSession data for %s", symbol)
 
 				default:
 					sort.Reverse(pd)
@@ -124,7 +124,7 @@ loop:
 	}
 }
 
-type price struct {
+type tradingSession struct {
 	date   time.Time
 	open   float64
 	high   float64
@@ -133,7 +133,7 @@ type price struct {
 	volume int64
 }
 
-type priceData []price
+type priceData []tradingSession
 
 // Len implements sort.Interface.
 func (pd priceData) Len() int {
@@ -174,7 +174,7 @@ func getPriceData(symbol string, startDate time.Time, endDate time.Time) (priceD
 	}
 	defer resp.Body.Close()
 
-	var pd []price
+	var pd []tradingSession
 	r := csv.NewReader(resp.Body)
 	for i := 0; ; i++ {
 		record, err := r.Read()
@@ -234,7 +234,7 @@ func getPriceData(symbol string, startDate time.Time, endDate time.Time) (priceD
 				return nil, err
 			}
 
-			pd = append(pd, price{
+			pd = append(pd, tradingSession{
 				date:   date,
 				open:   open,
 				high:   high,
