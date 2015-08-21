@@ -51,19 +51,19 @@ func main() {
 			start := end.Add(-time.Hour * 24 * 5)
 
 			// Map from symbol to tradingHistory channel.
-			chm := make(map[string]chan tradingHistory)
+			cm := make(map[string]chan tradingHistory)
 
 			// Acquire a read lock to get the symbols and launch a go routine per symbol.
 			sd.RLock()
 			for _, s := range sd.stocks {
 				// Avoid making redundant requests.
-				if _, ok := chm[s.symbol]; ok {
+				if _, ok := cm[s.symbol]; ok {
 					continue
 				}
 
 				// Launch a go routine that will stuff the tradingHistory into the channel.
 				ch := make(chan tradingHistory)
-				chm[s.symbol] = ch
+				cm[s.symbol] = ch
 				go func(symbol string, ch chan tradingHistory) {
 					th, err := getTradingHistory(symbol, start, end)
 					if err != nil {
@@ -75,16 +75,16 @@ func main() {
 			sd.RUnlock()
 
 			// Extract the tradingHistory from each channel into a new map.
-			thm := make(map[string]tradingHistory)
-			for symbol, ch := range chm {
-				thm[symbol] = <-ch
+			tm := make(map[string]tradingHistory)
+			for symbol, ch := range cm {
+				tm[symbol] = <-ch
 			}
 
 			// Acquire a write lock and write the updated data.
 			sd.Lock()
 			sd.refreshTime = time.Now()
 			for i, s := range sd.stocks {
-				sd.stocks[i].tradingHistory = thm[s.symbol]
+				sd.stocks[i].tradingHistory = tm[s.symbol]
 			}
 			sd.Unlock()
 
