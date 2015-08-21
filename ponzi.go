@@ -21,12 +21,15 @@ type stockData struct {
 	// refreshTime is when the data was last refreshed.
 	refreshTime time.Time
 
+	tradingDates tradingDates
+
 	stocks []stock
 }
 
 type stock struct {
-	symbol         string
-	tradingHistory tradingHistory
+	symbol            string
+	tradingHistory    tradingHistory
+	tradingSessionMap map[time.Time]tradingSession
 }
 
 func main() {
@@ -41,6 +44,9 @@ func main() {
 			stock{symbol: "MO"},
 			stock{symbol: "XOM"},
 			stock{symbol: "DIG"},
+			stock{symbol: "CEF"},
+			stock{symbol: "GOOG"},
+			stock{symbol: "AAPL"},
 		},
 	}
 
@@ -51,19 +57,19 @@ func main() {
 			start := end.Add(-time.Hour * 24 * 5)
 
 			// Map from symbol to tradingHistory channel.
-			cm := make(map[string]chan tradingHistory)
+			scm := map[string]chan tradingHistory{}
 
 			// Acquire a read lock to get the symbols and launch a go routine per symbol.
 			sd.RLock()
 			for _, s := range sd.stocks {
 				// Avoid making redundant requests.
-				if _, ok := cm[s.symbol]; ok {
+				if _, ok := scm[s.symbol]; ok {
 					continue
 				}
 
 				// Launch a go routine that will stuff the tradingHistory into the channel.
 				ch := make(chan tradingHistory)
-				cm[s.symbol] = ch
+				scm[s.symbol] = ch
 				go func(symbol string, ch chan tradingHistory) {
 					th, err := getTradingHistory(symbol, start, end)
 					if err != nil {
@@ -74,17 +80,37 @@ func main() {
 			}
 			sd.RUnlock()
 
+			// Record the unique trading dates for all data.
+			var td tradingDates
+			tdm := map[time.Time]bool{}
+
 			// Extract the tradingHistory from each channel into a new map.
-			tm := make(map[string]tradingHistory)
-			for symbol, ch := range cm {
-				tm[symbol] = <-ch
+			thm := map[string]tradingHistory{}
+			tsm := map[string]map[time.Time]tradingSession{}
+			for symbol, ch := range scm {
+				thm[symbol] = <-ch
+				for _, ts := range thm[symbol] {
+					if _, ok := tsm[symbol]; !ok {
+						tsm[symbol] = map[time.Time]tradingSession{}
+					}
+					tsm[symbol][ts.date] = ts
+					if !tdm[ts.date] {
+						tdm[ts.date] = true
+						td = append(td, ts.date)
+					}
+				}
 			}
+
+			// Sort the trading dates with most recent at the front.
+			sort.Reverse(td)
 
 			// Acquire a write lock and write the updated data.
 			sd.Lock()
 			sd.refreshTime = time.Now()
+			sd.tradingDates = td
 			for i, s := range sd.stocks {
-				sd.stocks[i].tradingHistory = tm[s.symbol]
+				sd.stocks[i].tradingHistory = thm[s.symbol]
+				sd.stocks[i].tradingSessionMap = tsm[s.symbol]
 			}
 			sd.Unlock()
 
@@ -100,37 +126,57 @@ loop:
 			log.Fatalf("termbox.Clear: %v", err)
 		}
 
-		printTerm := func(x, y int, fg, bg termbox.Attribute, format string, a ...interface{}) {
+		fg, bg := termbox.ColorDefault, termbox.ColorDefault
+
+		printTerm := func(x, y int, format string, a ...interface{}) {
 			for _, rune := range fmt.Sprintf(format, a...) {
 				termbox.SetCell(x, y, rune, fg, bg)
 				x++
 			}
 		}
 
+		const (
+			symbolWidth = 6
+			dateWidth   = 10
+		)
+
 		sd.RLock()
 
-		printTerm(0, 0, termbox.ColorDefault, termbox.ColorDefault, sd.refreshTime.Format("1/2/06 3:04 PM"))
+		printTerm(0, 0, sd.refreshTime.Format("1/2/06 3:04 PM"))
+
+		x := symbolWidth
+		for _, td := range sd.tradingDates {
+			printTerm(x, 2, "%[1]*s %s", dateWidth, td.Format("1/2"))
+			printTerm(x, 3, "%[1]*s", dateWidth, td.Format("Mon"))
+			x = x + dateWidth
+		}
 
 		for i, s := range sd.stocks {
-			if len(s.tradingHistory) == 0 {
-				continue
+			x, y := 0, 5+i*3
+			fg, bg = termbox.ColorDefault, termbox.ColorDefault
+
+			printTerm(x, y, "%[1]*s", symbolWidth, s.symbol)
+			x = x + symbolWidth
+
+			for _, td := range sd.tradingDates {
+				if ts, ok := s.tradingSessionMap[td]; ok {
+					fg = termbox.ColorDefault
+					printTerm(x, y, "%[1]*.2f", dateWidth, ts.close)
+
+					switch {
+					case ts.close > ts.open:
+						fg = termbox.ColorGreen
+
+					case ts.open > ts.close:
+						fg = termbox.ColorRed
+
+					default:
+						fg = termbox.ColorDefault
+					}
+					printTerm(x, y+1, "%+[1]*.2f", dateWidth, ts.close-ts.open)
+				}
+				x = x + dateWidth
 			}
-
-			ts := s.tradingHistory[0]
-
-			var fg termbox.Attribute
-			switch {
-			case ts.close > ts.open:
-				fg = termbox.ColorGreen
-
-			case ts.open > ts.close:
-				fg = termbox.ColorRed
-
-			default:
-				fg = termbox.ColorDefault
-			}
-
-			printTerm(0, i+1, fg, termbox.ColorDefault, "%-10s %-10s %10.2f %+10.2f", s.symbol, ts.date.Format("1/2/06"), ts.close, ts.close-ts.open)
 		}
 
 		sd.RUnlock()
@@ -273,4 +319,21 @@ func getTradingHistory(symbol string, startDate time.Time, endDate time.Time) (t
 	sort.Reverse(th)
 
 	return th, nil
+}
+
+type tradingDates []time.Time
+
+// Len implements sort.Interface
+func (td tradingDates) Len() int {
+	return len(td)
+}
+
+// Less implements sort.Interface
+func (td tradingDates) Less(i, j int) bool {
+	return td[i].Before(td[j])
+}
+
+// Swap implements sort.Interface
+func (td tradingDates) Swap(i, j int) {
+	td[i], td[j] = td[j], td[i]
 }
