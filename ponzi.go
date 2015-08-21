@@ -16,6 +16,8 @@ import (
 )
 
 type stockData struct {
+	sync.RWMutex
+
 	// refreshTime is when the data was last refreshed.
 	refreshTime time.Time
 
@@ -33,7 +35,6 @@ func main() {
 	}
 	defer termbox.Close()
 
-	mut := sync.RWMutex{}
 	sd := &stockData{
 		stocks: []stock{
 			stock{symbol: "SPY"},
@@ -53,7 +54,7 @@ func main() {
 			chm := make(map[string]chan tradingHistory)
 
 			// Acquire a read lock to get the symbols and launch a go routine per symbol.
-			mut.RLock()
+			sd.RLock()
 			for _, s := range sd.stocks {
 				// Avoid making redundant requests.
 				if _, ok := chm[s.symbol]; ok {
@@ -71,7 +72,7 @@ func main() {
 					ch <- th
 				}(s.symbol, ch)
 			}
-			mut.RUnlock()
+			sd.RUnlock()
 
 			// Extract the tradingHistory from each channel into a new map.
 			thm := make(map[string]tradingHistory)
@@ -80,12 +81,12 @@ func main() {
 			}
 
 			// Acquire a write lock and write the updated data.
-			mut.Lock()
+			sd.Lock()
 			sd.refreshTime = time.Now()
 			for i, s := range sd.stocks {
 				sd.stocks[i].tradingHistory = thm[s.symbol]
 			}
-			mut.Unlock()
+			sd.Unlock()
 
 			// Signal termbox to update itself and goto sleep.
 			termbox.Interrupt()
@@ -106,7 +107,7 @@ loop:
 			}
 		}
 
-		mut.RLock()
+		sd.RLock()
 
 		printTerm(0, 0, termbox.ColorDefault, termbox.ColorDefault, sd.refreshTime.Format("1/2/06 3:04 PM"))
 
@@ -132,7 +133,7 @@ loop:
 			printTerm(0, i+1, fg, termbox.ColorDefault, "%-10s %-10s %10.2f %+10.2f", s.symbol, ts.date.Format("1/2/06"), ts.close, ts.close-ts.open)
 		}
 
-		mut.RUnlock()
+		sd.RUnlock()
 
 		if err := termbox.Flush(); err != nil {
 			log.Fatalf("termbox.Flush: %v", err)
