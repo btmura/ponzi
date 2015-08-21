@@ -48,10 +48,10 @@ func main() {
 			for symbol, ch := range priceChannels {
 				p := tradingSession{}
 
-				th, err := getTradingSessions(symbol, time.Now().Add(time.Hour*24*5), time.Now())
+				th, err := getTradingHistory(symbol, time.Now().Add(time.Hour*24*5), time.Now())
 				switch {
 				case err != nil:
-					log.Printf("getTradingSessions(%s): %v", symbol, err)
+					log.Printf("getTradingHistory(%s): %v", symbol, err)
 
 				case len(th) == 0:
 					log.Printf("no tradingSession data for %s", symbol)
@@ -150,7 +150,7 @@ func (th tradingHistory) Swap(i, j int) {
 	th[i], th[j] = th[j], th[i]
 }
 
-func getTradingSessions(symbol string, startDate time.Time, endDate time.Time) (tradingHistory, error) {
+func getTradingHistory(symbol string, startDate time.Time, endDate time.Time) (tradingHistory, error) {
 	formatTime := func(date time.Time) string {
 		return date.Format("Jan/02/06")
 	}
