@@ -46,7 +46,7 @@ func main() {
 			rt := time.Now()
 
 			for symbol, ch := range priceChannels {
-				p := tradingSession{}
+				ts := tradingSession{}
 
 				th, err := getTradingHistory(symbol, time.Now().Add(time.Hour*24*5), time.Now())
 				switch {
@@ -57,12 +57,11 @@ func main() {
 					log.Printf("no tradingSession data for %s", symbol)
 
 				default:
-					sort.Reverse(th)
-					p = th[0]
+					ts = th[0]
 				}
 
 				<-ch
-				ch <- p
+				ch <- ts
 			}
 
 			<-refreshTimeChannel
@@ -124,15 +123,6 @@ loop:
 	}
 }
 
-type tradingSession struct {
-	date   time.Time
-	open   float64
-	high   float64
-	low    float64
-	close  float64
-	volume int64
-}
-
 type tradingHistory []tradingSession
 
 // Len implements sort.Interface.
@@ -148,6 +138,15 @@ func (th tradingHistory) Less(i, j int) bool {
 // Swap implements sort.Interface.
 func (th tradingHistory) Swap(i, j int) {
 	th[i], th[j] = th[j], th[i]
+}
+
+type tradingSession struct {
+	date   time.Time
+	open   float64
+	high   float64
+	low    float64
+	close  float64
+	volume int64
 }
 
 func getTradingHistory(symbol string, startDate time.Time, endDate time.Time) (tradingHistory, error) {
@@ -174,7 +173,7 @@ func getTradingHistory(symbol string, startDate time.Time, endDate time.Time) (t
 	}
 	defer resp.Body.Close()
 
-	var th []tradingSession
+	var th tradingHistory
 	r := csv.NewReader(resp.Body)
 	for i := 0; ; i++ {
 		record, err := r.Read()
@@ -244,6 +243,9 @@ func getTradingHistory(symbol string, startDate time.Time, endDate time.Time) (t
 			})
 		}
 	}
+
+	// Most recent trading sessions at the front.
+	sort.Reverse(th)
 
 	return th, nil
 }
