@@ -48,17 +48,17 @@ func main() {
 			for symbol, ch := range priceChannels {
 				p := tradingSession{}
 
-				pd, err := getTradingSessions(symbol, time.Now().Add(time.Hour*24*5), time.Now())
+				th, err := getTradingSessions(symbol, time.Now().Add(time.Hour*24*5), time.Now())
 				switch {
 				case err != nil:
 					log.Printf("getTradingSessions(%s): %v", symbol, err)
 
-				case len(pd) == 0:
+				case len(th) == 0:
 					log.Printf("no tradingSession data for %s", symbol)
 
 				default:
-					sort.Reverse(pd)
-					p = pd[0]
+					sort.Reverse(th)
+					p = th[0]
 				}
 
 				<-ch
@@ -133,24 +133,24 @@ type tradingSession struct {
 	volume int64
 }
 
-type priceData []tradingSession
+type tradingHistory []tradingSession
 
 // Len implements sort.Interface.
-func (pd priceData) Len() int {
-	return len(pd)
+func (th tradingHistory) Len() int {
+	return len(th)
 }
 
 // Less implements sort.Interface.
-func (pd priceData) Less(i, j int) bool {
-	return pd[i].date.Before(pd[j].date)
+func (th tradingHistory) Less(i, j int) bool {
+	return th[i].date.Before(th[j].date)
 }
 
 // Swap implements sort.Interface.
-func (pd priceData) Swap(i, j int) {
-	pd[i], pd[j] = pd[j], pd[i]
+func (th tradingHistory) Swap(i, j int) {
+	th[i], th[j] = th[j], th[i]
 }
 
-func getTradingSessions(symbol string, startDate time.Time, endDate time.Time) (priceData, error) {
+func getTradingSessions(symbol string, startDate time.Time, endDate time.Time) (tradingHistory, error) {
 	formatTime := func(date time.Time) string {
 		return date.Format("Jan/02/06")
 	}
@@ -174,7 +174,7 @@ func getTradingSessions(symbol string, startDate time.Time, endDate time.Time) (
 	}
 	defer resp.Body.Close()
 
-	var pd []tradingSession
+	var th []tradingSession
 	r := csv.NewReader(resp.Body)
 	for i := 0; ; i++ {
 		record, err := r.Read()
@@ -234,7 +234,7 @@ func getTradingSessions(symbol string, startDate time.Time, endDate time.Time) (
 				return nil, err
 			}
 
-			pd = append(pd, tradingSession{
+			th = append(th, tradingSession{
 				date:   date,
 				open:   open,
 				high:   high,
@@ -245,5 +245,5 @@ func getTradingSessions(symbol string, startDate time.Time, endDate time.Time) (
 		}
 	}
 
-	return pd, nil
+	return th, nil
 }
