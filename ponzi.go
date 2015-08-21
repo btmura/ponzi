@@ -9,10 +9,23 @@ import (
 	"net/url"
 	"sort"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/nsf/termbox-go"
 )
+
+type stockData struct {
+	// refreshTime is when the data was last refreshed.
+	refreshTime time.Time
+
+	stocks []stock
+}
+
+type stock struct {
+	symbol         string
+	tradingHistory tradingHistory
+}
 
 func main() {
 	if err := termbox.Init(); err != nil {
@@ -20,53 +33,61 @@ func main() {
 	}
 	defer termbox.Close()
 
-	// TODO(btmura): use a single a channel
-
-	refreshTimeChannel := make(chan *time.Time, 1)
-	refreshTimeChannel <- nil
-
-	symbols := []string{
-		"SPY",
-		"MO",
-		"XOM",
-		"DIG",
+	mut := sync.RWMutex{}
+	sd := &stockData{
+		stocks: []stock{
+			stock{symbol: "SPY"},
+			stock{symbol: "MO"},
+			stock{symbol: "XOM"},
+			stock{symbol: "DIG"},
+		},
 	}
 
-	priceChannels := make(map[string]chan tradingSession)
-	for _, symbol := range symbols {
-		if _, ok := priceChannels[symbol]; !ok {
-			ch := make(chan tradingSession, 1)
-			ch <- tradingSession{}
-			priceChannels[symbol] = ch
-		}
-	}
-
+	// Launch a go routine to periodically refresh the stock data.
 	go func() {
 		for {
-			rt := time.Now()
+			end := time.Now()
+			start := end.Add(-time.Hour * 24 * 5)
 
-			for symbol, ch := range priceChannels {
-				ts := tradingSession{}
+			// Map from symbol to tradingHistory channel.
+			chm := make(map[string]chan tradingHistory)
 
-				th, err := getTradingHistory(symbol, time.Now().Add(time.Hour*24*5), time.Now())
-				switch {
-				case err != nil:
-					log.Printf("getTradingHistory(%s): %v", symbol, err)
-
-				case len(th) == 0:
-					log.Printf("no tradingSession data for %s", symbol)
-
-				default:
-					ts = th[0]
+			// Acquire a read lock to get the symbols and launch a go routine per symbol.
+			mut.RLock()
+			for _, s := range sd.stocks {
+				// Avoid making redundant requests.
+				if _, ok := chm[s.symbol]; ok {
+					continue
 				}
 
-				<-ch
-				ch <- ts
+				// Launch a go routine that will stuff the tradingHistory into the channel.
+				ch := make(chan tradingHistory)
+				chm[s.symbol] = ch
+				go func(symbol string, ch chan tradingHistory) {
+					th, err := getTradingHistory(symbol, start, end)
+					if err != nil {
+						log.Printf("getTradingHistory(%s): %v", symbol, err)
+					}
+					ch <- th
+				}(s.symbol, ch)
+			}
+			mut.RUnlock()
+
+			// Extract the tradingHistory from each channel into a new map.
+			thm := make(map[string]tradingHistory)
+			for symbol, ch := range chm {
+				thm[symbol] = <-ch
 			}
 
-			<-refreshTimeChannel
-			refreshTimeChannel <- &rt
+			// Acquire a write lock and write the updated data.
+			mut.Lock()
+			sd.refreshTime = time.Now()
+			for i, s := range sd.stocks {
+				sd.stocks[i].tradingHistory = thm[s.symbol]
+			}
+			mut.Unlock()
 
+			// Signal termbox to update itself and goto sleep.
 			termbox.Interrupt()
 			time.Sleep(time.Hour)
 		}
@@ -85,30 +106,33 @@ loop:
 			}
 		}
 
-		rt := <-refreshTimeChannel
-		if rt != nil {
-			printTerm(0, 0, termbox.ColorDefault, termbox.ColorDefault, rt.Format("1/2/06 3:4 PM"))
-		}
-		refreshTimeChannel <- rt
+		mut.RLock()
 
-		for i, symbol := range symbols {
-			p := <-priceChannels[symbol]
+		printTerm(0, 0, termbox.ColorDefault, termbox.ColorDefault, sd.refreshTime.Format("1/2/06 3:04 PM"))
+
+		for i, s := range sd.stocks {
+			if len(s.tradingHistory) == 0 {
+				continue
+			}
+
+			ts := s.tradingHistory[0]
 
 			var fg termbox.Attribute
 			switch {
-			case p.close > p.open:
+			case ts.close > ts.open:
 				fg = termbox.ColorGreen
 
-			case p.open > p.close:
+			case ts.open > ts.close:
 				fg = termbox.ColorRed
 
 			default:
 				fg = termbox.ColorDefault
 			}
 
-			printTerm(0, i+1, fg, termbox.ColorDefault, "%-10s %-10s %10.2f %+10.2f", symbol, p.date.Format("1/2/06"), p.close, p.close-p.open)
-			priceChannels[symbol] <- p
+			printTerm(0, i+1, fg, termbox.ColorDefault, "%-10s %-10s %10.2f %+10.2f", s.symbol, ts.date.Format("1/2/06"), ts.close, ts.close-ts.open)
 		}
+
+		mut.RUnlock()
 
 		if err := termbox.Flush(); err != nil {
 			log.Fatalf("termbox.Flush: %v", err)
