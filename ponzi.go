@@ -101,8 +101,8 @@ func main() {
 				}
 			}
 
-			// Sort the trading dates with most recent at the front.
-			sort.Reverse(td)
+			// Sort the trading dates with most recent at the back.
+			sort.Sort(td)
 
 			// Acquire a write lock and write the updated data.
 			sd.Lock()
@@ -145,8 +145,15 @@ loop:
 
 		print(0, 0, sd.refreshTime.Format("1/2/06 3:04 PM"))
 
+		// Trim down trading dates to what fits the screen.
+		tsCellCount := (w - symbolWidth) / tsCellWidth
+		if tsCellCount > len(sd.tradingDates) {
+			tsCellCount = len(sd.tradingDates)
+		}
+		tradingDates := sd.tradingDates[len(sd.tradingDates)-tsCellCount:]
+
 		x := symbolWidth
-		for _, td := range sd.tradingDates {
+		for _, td := range tradingDates {
 			if x+tsCellWidth > w {
 				break
 			}
@@ -162,13 +169,14 @@ loop:
 			print(x, y, "%[1]*s", symbolWidth, s.symbol)
 			x = x + symbolWidth
 
-			for _, td := range sd.tradingDates {
+			for _, td := range tradingDates {
 				if x+tsCellWidth > w {
 					break
 				}
 
 				if ts, ok := s.tradingSessionMap[td]; ok {
 					fg = termbox.ColorDefault
+
 					print(x, y, "%[1]*.2f", tsCellWidth, ts.close)
 
 					switch {
