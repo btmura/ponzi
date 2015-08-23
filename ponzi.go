@@ -163,7 +163,7 @@ loop:
 		}
 
 		for i, s := range sd.stocks {
-			x, y := 0, 5+i*3
+			x, y := 0, 5+i*4
 			fg = termbox.ColorDefault
 
 			print(x, y, "%[1]*s", symbolWidth, s.symbol)
@@ -190,6 +190,7 @@ loop:
 						fg = termbox.ColorDefault
 					}
 					print(x, y+1, "%+[1]*.2f", tsCellWidth, ts.change)
+					print(x, y+2, "%+[1]*.2f%%", tsCellWidth-1, ts.percentChange)
 				}
 				x = x + tsCellWidth
 			}
@@ -228,13 +229,14 @@ func (th tradingHistory) Swap(i, j int) {
 }
 
 type tradingSession struct {
-	date   time.Time
-	open   float64
-	high   float64
-	low    float64
-	close  float64
-	volume int64
-	change float64
+	date          time.Time
+	open          float64
+	high          float64
+	low           float64
+	close         float64
+	volume        int64
+	change        float64
+	percentChange float64
 }
 
 func getTradingHistory(symbol string, startDate time.Time, endDate time.Time) (tradingHistory, error) {
@@ -339,6 +341,7 @@ func getTradingHistory(symbol string, startDate time.Time, endDate time.Time) (t
 	for i := range th {
 		if i+1 < len(th) {
 			th[i].change = th[i].close - th[i+1].close
+			th[i].percentChange = th[i].change / th[i+1].close * 100.0
 		}
 	}
 
