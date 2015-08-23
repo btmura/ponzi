@@ -180,16 +180,16 @@ loop:
 					print(x, y, "%[1]*.2f", tsCellWidth, ts.close)
 
 					switch {
-					case ts.close > ts.open:
+					case ts.change > 0:
 						fg = termbox.ColorGreen
 
-					case ts.open > ts.close:
+					case ts.change < 0:
 						fg = termbox.ColorRed
 
 					default:
 						fg = termbox.ColorDefault
 					}
-					print(x, y+1, "%+[1]*.2f", tsCellWidth, ts.close-ts.open)
+					print(x, y+1, "%+[1]*.2f", tsCellWidth, ts.change)
 				}
 				x = x + tsCellWidth
 			}
@@ -234,6 +234,7 @@ type tradingSession struct {
 	low    float64
 	close  float64
 	volume int64
+	change float64
 }
 
 func getTradingHistory(symbol string, startDate time.Time, endDate time.Time) (tradingHistory, error) {
@@ -333,6 +334,13 @@ func getTradingHistory(symbol string, startDate time.Time, endDate time.Time) (t
 
 	// Most recent trading sessions at the front.
 	sort.Reverse(th)
+
+	// Calculate the price change which is today's minus yesterday's close.
+	for i := range th {
+		if i+1 < len(th) {
+			th[i].change = th[i].close - th[i+1].close
+		}
+	}
 
 	return th, nil
 }
