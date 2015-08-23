@@ -179,7 +179,7 @@ loop:
 
 					// Print price and volume in default color.
 					print(x, y, "%[1]*.2f", tsCellWidth, ts.close)
-					print(x, y+3, "%[1]*d", tsCellWidth, ts.volume)
+					print(x, y+3, "%[1]*s", tsCellWidth, shortenInt(ts.volume))
 
 					switch {
 					case ts.change > 0:
@@ -367,4 +367,16 @@ func (td tradingDates) Less(i, j int) bool {
 // Swap implements sort.Interface
 func (td tradingDates) Swap(i, j int) {
 	td[i], td[j] = td[j], td[i]
+}
+
+// shortenInt shortens larger numbers and appends a quantity suffix.
+func shortenInt(val int64) string {
+	switch {
+	case val/1e6 > 0:
+		return fmt.Sprintf("%dM", val/1e6)
+	case val/1e3 > 0:
+		return fmt.Sprintf("%dK", val/1e3)
+	default:
+		return strconv.FormatInt(val, 10)
+	}
 }
