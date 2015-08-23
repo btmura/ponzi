@@ -163,7 +163,7 @@ loop:
 		}
 
 		for i, s := range sd.stocks {
-			x, y := 0, 5+i*4
+			x, y := 0, 5+i*5
 			fg = termbox.ColorDefault
 
 			print(x, y, "%[1]*s", symbolWidth, s.symbol)
@@ -177,7 +177,9 @@ loop:
 				if ts, ok := s.tradingSessionMap[td]; ok {
 					fg = termbox.ColorDefault
 
+					// Print price and volume in default color.
 					print(x, y, "%[1]*.2f", tsCellWidth, ts.close)
+					print(x, y+3, "%[1]*d", tsCellWidth, ts.volume)
 
 					switch {
 					case ts.change > 0:
@@ -189,6 +191,8 @@ loop:
 					default:
 						fg = termbox.ColorDefault
 					}
+
+					// Print change and % change in green or red.
 					print(x, y+1, "%+[1]*.2f", tsCellWidth, ts.change)
 					print(x, y+2, "%+[1]*.2f%%", tsCellWidth-1, ts.percentChange)
 				}
