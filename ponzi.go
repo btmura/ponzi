@@ -120,6 +120,11 @@ func main() {
 		}
 	}()
 
+	const (
+		symbolWidth = 6
+		priceWidth  = 10
+	)
+
 loop:
 	for {
 		if err := termbox.Clear(termbox.ColorDefault, termbox.ColorDefault); err != nil {
@@ -127,6 +132,7 @@ loop:
 		}
 
 		fg, bg := termbox.ColorDefault, termbox.ColorDefault
+		w, _ := termbox.Size()
 
 		printTerm := func(x, y int, format string, a ...interface{}) {
 			for _, rune := range fmt.Sprintf(format, a...) {
@@ -135,33 +141,33 @@ loop:
 			}
 		}
 
-		const (
-			symbolWidth = 6
-			dateWidth   = 10
-		)
-
 		sd.RLock()
 
 		printTerm(0, 0, sd.refreshTime.Format("1/2/06 3:04 PM"))
 
 		x := symbolWidth
 		for _, td := range sd.tradingDates {
-			printTerm(x, 2, "%[1]*s %s", dateWidth, td.Format("1/2"))
-			printTerm(x, 3, "%[1]*s", dateWidth, td.Format("Mon"))
-			x = x + dateWidth
+			printTerm(x, 2, "%[1]*s", priceWidth, td.Format("1/2"))
+			printTerm(x, 3, "%[1]*s", priceWidth, td.Format("Mon"))
+			x = x + priceWidth
+			if x+priceWidth > w-symbolWidth {
+				break
+			}
 		}
 
 		for i, s := range sd.stocks {
 			x, y := 0, 5+i*3
-			fg, bg = termbox.ColorDefault, termbox.ColorDefault
+			fg = termbox.ColorDefault
 
 			printTerm(x, y, "%[1]*s", symbolWidth, s.symbol)
+			printTerm(w-symbolWidth, y, "%-[1]*s", symbolWidth, s.symbol)
+
 			x = x + symbolWidth
 
 			for _, td := range sd.tradingDates {
 				if ts, ok := s.tradingSessionMap[td]; ok {
 					fg = termbox.ColorDefault
-					printTerm(x, y, "%[1]*.2f", dateWidth, ts.close)
+					printTerm(x, y, "%[1]*.2f", priceWidth, ts.close)
 
 					switch {
 					case ts.close > ts.open:
@@ -173,9 +179,12 @@ loop:
 					default:
 						fg = termbox.ColorDefault
 					}
-					printTerm(x, y+1, "%+[1]*.2f", dateWidth, ts.close-ts.open)
+					printTerm(x, y+1, "%+[1]*.2f", priceWidth, ts.close-ts.open)
 				}
-				x = x + dateWidth
+				x = x + priceWidth
+				if x+priceWidth > w-symbolWidth {
+					break
+				}
 			}
 		}
 
