@@ -59,7 +59,7 @@ type tradingSession struct {
 
 func getTradingHistoryFromGoogle(symbol string, startDate, endDate time.Time) (tradingHistory, error) {
 	formatTime := func(date time.Time) string {
-		return date.Format("Jan/02/06")
+		return date.Format("Jan 02, 2006")
 	}
 
 	v := url.Values{}
