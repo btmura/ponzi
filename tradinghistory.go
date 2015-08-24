@@ -30,14 +30,12 @@ func (th tradingHistory) Swap(i, j int) {
 }
 
 type tradingSession struct {
-	date          time.Time
-	open          float64
-	high          float64
-	low           float64
-	close         float64
-	volume        int64
-	change        float64
-	percentChange float64
+	date   time.Time
+	open   float64
+	high   float64
+	low    float64
+	close  float64
+	volume int64
 }
 
 func getTradingHistory(symbol string, startDate time.Time, endDate time.Time) (tradingHistory, error) {
@@ -137,14 +135,6 @@ func getTradingHistory(symbol string, startDate time.Time, endDate time.Time) (t
 
 	// Most recent trading sessions at the front.
 	sort.Reverse(th)
-
-	// Calculate the price change which is today's minus yesterday's close.
-	for i := range th {
-		if i+1 < len(th) {
-			th[i].change = th[i].close - th[i+1].close
-			th[i].percentChange = th[i].change / th[i+1].close * 100.0
-		}
-	}
 
 	return th, nil
 }

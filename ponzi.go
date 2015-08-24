@@ -24,8 +24,18 @@ type stockData struct {
 
 type stock struct {
 	symbol            string
-	tradingHistory    tradingHistory
-	tradingSessionMap map[time.Time]tradingSession
+	tradingHistory    stockTradingHistory
+	tradingSessionMap map[time.Time]stockTradingSession
+}
+
+type stockTradingHistory []stockTradingSession
+
+type stockTradingSession struct {
+	date          time.Time
+	close         float64
+	volume        int64
+	change        float64
+	percentChange float64
 }
 
 func main() {
@@ -81,13 +91,13 @@ func main() {
 			tdm := map[time.Time]bool{}
 
 			// Extract the tradingHistory from each channel into a new map.
-			thm := map[string]tradingHistory{}
-			tsm := map[string]map[time.Time]tradingSession{}
+			thm := map[string]stockTradingHistory{}
+			tsm := map[string]map[time.Time]stockTradingSession{}
 			for symbol, ch := range scm {
-				thm[symbol] = <-ch
+				thm[symbol] = convertTradingHistory(<-ch)
 				for _, ts := range thm[symbol] {
 					if _, ok := tsm[symbol]; !ok {
-						tsm[symbol] = map[time.Time]tradingSession{}
+						tsm[symbol] = map[time.Time]stockTradingSession{}
 					}
 					tsm[symbol][ts.date] = ts
 					if !tdm[ts.date] {
@@ -209,6 +219,27 @@ loop:
 			}
 		}
 	}
+}
+
+func convertTradingHistory(th tradingHistory) stockTradingHistory {
+	var sth stockTradingHistory
+	for _, ts := range th {
+		sth = append(sth, stockTradingSession{
+			date:   ts.date,
+			close:  ts.close,
+			volume: ts.volume,
+		})
+	}
+
+	// Calculate the price change which is today's minus yesterday's close.
+	for i := range sth {
+		if i+1 < len(sth) {
+			sth[i].change = sth[i].close - sth[i+1].close
+			sth[i].percentChange = sth[i].change / sth[i+1].close * 100.0
+		}
+	}
+
+	return sth
 }
 
 type tradingDates []time.Time
