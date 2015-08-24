@@ -12,6 +12,17 @@ import (
 	"time"
 )
 
+// Google is a tradingHistoryProvider that gets data from Google Finance.
+var Google = tradingHistoryProvider{
+	getTradingHistory: getTradingHistoryFromGoogle,
+}
+
+// tradingHistoryProvider is a struct that provides a getTradingHistory function.
+type tradingHistoryProvider struct {
+	getTradingHistory func(symbol string, startDate, endDate time.Time) (tradingHistory, error)
+}
+
+// tradingHistory is a sorted tradingSession slice with the most recent at the front.
 type tradingHistory []tradingSession
 
 // Len implements sort.Interface.
@@ -29,6 +40,7 @@ func (th tradingHistory) Swap(i, j int) {
 	th[i], th[j] = th[j], th[i]
 }
 
+// tradingSession contains stats from a single trading session.
 type tradingSession struct {
 	date   time.Time
 	open   float64
@@ -38,7 +50,7 @@ type tradingSession struct {
 	volume int64
 }
 
-func getTradingHistory(symbol string, startDate time.Time, endDate time.Time) (tradingHistory, error) {
+func getTradingHistoryFromGoogle(symbol string, startDate, endDate time.Time) (tradingHistory, error) {
 	formatTime := func(date time.Time) string {
 		return date.Format("Jan/02/06")
 	}

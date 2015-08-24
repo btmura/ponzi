@@ -181,7 +181,7 @@ func refreshStockData(sd *stockData) {
 		ch := make(chan tradingHistory)
 		scm[s.symbol] = ch
 		go func(symbol string, ch chan tradingHistory) {
-			th, err := getTradingHistory(symbol, start, end)
+			th, err := Google.getTradingHistory(symbol, start, end)
 			if err != nil {
 				log.Printf("getTradingHistory(%s): %v", symbol, err)
 			}
