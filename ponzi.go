@@ -59,66 +59,7 @@ func main() {
 	// Launch a go routine to periodically refresh the stock data.
 	go func() {
 		for {
-			end := time.Now()
-			start := end.Add(-time.Hour * 24 * 5)
-
-			// Map from symbol to tradingHistory channel.
-			scm := map[string]chan tradingHistory{}
-
-			// Acquire a read lock to get the symbols and launch a go routine per symbol.
-			sd.RLock()
-			for _, s := range sd.stocks {
-				// Avoid making redundant requests.
-				if _, ok := scm[s.symbol]; ok {
-					continue
-				}
-
-				// Launch a go routine that will stuff the tradingHistory into the channel.
-				ch := make(chan tradingHistory)
-				scm[s.symbol] = ch
-				go func(symbol string, ch chan tradingHistory) {
-					th, err := getTradingHistory(symbol, start, end)
-					if err != nil {
-						log.Printf("getTradingHistory(%s): %v", symbol, err)
-					}
-					ch <- th
-				}(s.symbol, ch)
-			}
-			sd.RUnlock()
-
-			// Record the unique trading dates for all data.
-			var td tradingDates
-			tdm := map[time.Time]bool{}
-
-			// Extract the tradingHistory from each channel into a new map.
-			thm := map[string]stockTradingHistory{}
-			tsm := map[string]map[time.Time]stockTradingSession{}
-			for symbol, ch := range scm {
-				thm[symbol] = convertTradingHistory(<-ch)
-				for _, ts := range thm[symbol] {
-					if _, ok := tsm[symbol]; !ok {
-						tsm[symbol] = map[time.Time]stockTradingSession{}
-					}
-					tsm[symbol][ts.date] = ts
-					if !tdm[ts.date] {
-						tdm[ts.date] = true
-						td = append(td, ts.date)
-					}
-				}
-			}
-
-			// Sort the trading dates with most recent at the back.
-			sort.Sort(td)
-
-			// Acquire a write lock and write the updated data.
-			sd.Lock()
-			sd.refreshTime = time.Now()
-			sd.tradingDates = td
-			for i, s := range sd.stocks {
-				sd.stocks[i].tradingHistory = thm[s.symbol]
-				sd.stocks[i].tradingSessionMap = tsm[s.symbol]
-			}
-			sd.Unlock()
+			refreshStockData(sd)
 
 			// Signal termbox to update itself and goto sleep.
 			termbox.Interrupt()
@@ -219,6 +160,69 @@ loop:
 			}
 		}
 	}
+}
+
+func refreshStockData(sd *stockData) {
+	end := time.Now()
+	start := end.Add(-time.Hour * 24 * 5)
+
+	// Map from symbol to tradingHistory channel.
+	scm := map[string]chan tradingHistory{}
+
+	// Acquire a read lock to get the symbols and launch a go routine per symbol.
+	sd.RLock()
+	for _, s := range sd.stocks {
+		// Avoid making redundant requests.
+		if _, ok := scm[s.symbol]; ok {
+			continue
+		}
+
+		// Launch a go routine that will stuff the tradingHistory into the channel.
+		ch := make(chan tradingHistory)
+		scm[s.symbol] = ch
+		go func(symbol string, ch chan tradingHistory) {
+			th, err := getTradingHistory(symbol, start, end)
+			if err != nil {
+				log.Printf("getTradingHistory(%s): %v", symbol, err)
+			}
+			ch <- th
+		}(s.symbol, ch)
+	}
+	sd.RUnlock()
+
+	// Record the unique trading dates for all data.
+	var td tradingDates
+	tdm := map[time.Time]bool{}
+
+	// Extract the tradingHistory from each channel into a new map.
+	thm := map[string]stockTradingHistory{}
+	tsm := map[string]map[time.Time]stockTradingSession{}
+	for symbol, ch := range scm {
+		thm[symbol] = convertTradingHistory(<-ch)
+		for _, ts := range thm[symbol] {
+			if _, ok := tsm[symbol]; !ok {
+				tsm[symbol] = map[time.Time]stockTradingSession{}
+			}
+			tsm[symbol][ts.date] = ts
+			if !tdm[ts.date] {
+				tdm[ts.date] = true
+				td = append(td, ts.date)
+			}
+		}
+	}
+
+	// Sort the trading dates with most recent at the back.
+	sort.Sort(td)
+
+	// Acquire a write lock and write the updated data.
+	sd.Lock()
+	sd.refreshTime = time.Now()
+	sd.tradingDates = td
+	for i, s := range sd.stocks {
+		sd.stocks[i].tradingHistory = thm[s.symbol]
+		sd.stocks[i].tradingSessionMap = tsm[s.symbol]
+	}
+	sd.Unlock()
 }
 
 func convertTradingHistory(th tradingHistory) stockTradingHistory {
