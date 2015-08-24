@@ -172,6 +172,9 @@ func refreshStockData(sd *stockData) {
 	// Map from symbol to tradingHistory channel.
 	scm := map[string]chan tradingHistory{}
 
+	// Map from symbol to realTimeTradingData channel.
+	rcm := map[string]chan realTimeTradingData{}
+
 	// Acquire a read lock to get the symbols and launch a go routine per symbol.
 	sd.RLock()
 	for _, s := range sd.stocks {
@@ -190,6 +193,17 @@ func refreshStockData(sd *stockData) {
 			}
 			ch <- th
 		}(s.symbol, ch)
+
+		// Launch a go routine that will stuff the realTimeTradingData into the channel.
+		rch := make(chan realTimeTradingData)
+		rcm[s.symbol] = rch
+		go func(symbol string, rch chan realTimeTradingData) {
+			rd, err := getRealTimeTradingData(symbol)
+			if err != nil {
+				log.Printf("getRealTimeTradingData(%s): %v", symbol, err)
+			}
+			rch <- rd
+		}(s.symbol, rch)
 	}
 	sd.RUnlock()
 
@@ -201,8 +215,36 @@ func refreshStockData(sd *stockData) {
 	thm := map[string]stockTradingHistory{}
 	tsm := map[string]map[time.Time]stockTradingSession{}
 	for symbol, ch := range scm {
+		// TODO(btmura): detect error value from channel
 		thm[symbol] = convertTradingHistory(<-ch)
 		for _, ts := range thm[symbol] {
+			if _, ok := tsm[symbol]; !ok {
+				tsm[symbol] = map[time.Time]stockTradingSession{}
+			}
+			tsm[symbol][ts.date] = ts
+			if !tdm[ts.date] {
+				tdm[ts.date] = true
+				td = append(td, ts.date)
+			}
+		}
+	}
+
+	// Extract the realTimeTradingData from each channel.
+	for symbol, rch := range rcm {
+
+		// TODO(btmura): detect error value from channel
+		rd := <-rch
+
+		ts := stockTradingSession{
+			date:          time.Date(rd.timestamp.Year(), rd.timestamp.Month(), rd.timestamp.Day(), 0, 0, 0, 0, rd.timestamp.Location()),
+			close:         rd.price,
+			change:        rd.change,
+			percentChange: rd.percentChange,
+		}
+
+		if _, ok := tsm[symbol][ts.date]; !ok {
+			thm[symbol] = append([]stockTradingSession{ts}, thm[symbol]...)
+
 			if _, ok := tsm[symbol]; !ok {
 				tsm[symbol] = map[time.Time]stockTradingSession{}
 			}

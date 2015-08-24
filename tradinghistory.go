@@ -2,8 +2,11 @@ package main
 
 import (
 	"encoding/csv"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
@@ -39,6 +42,13 @@ type tradingSession struct {
 	low    float64
 	close  float64
 	volume int64
+}
+
+type realTimeTradingData struct {
+	timestamp     time.Time
+	price         float64
+	change        float64
+	percentChange float64
 }
 
 func getTradingHistory(symbol string, startDate, endDate time.Time) (tradingHistory, error) {
@@ -260,4 +270,76 @@ func getTradingHistoryFromYahoo(symbol string, startDate, endDate time.Time) (tr
 	sort.Reverse(th)
 
 	return th, nil
+}
+
+func getRealTimeTradingData(symbol string) (realTimeTradingData, error) {
+	v := url.Values{}
+	v.Set("client", "ig")
+	v.Set("q", symbol)
+
+	u, err := url.Parse("http://www.google.com/finance/info")
+	if err != nil {
+		return realTimeTradingData{}, err
+	}
+	u.RawQuery = v.Encode()
+	log.Printf("url: %s", u)
+
+	resp, err := http.Get(u.String())
+	if err != nil {
+		return realTimeTradingData{}, err
+	}
+	defer resp.Body.Close()
+
+	parsed := []struct {
+		L      string // price
+		C      string // change
+		Cp     string // percent change
+		Lt_dts string // time
+	}{}
+
+	data, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return realTimeTradingData{}, err
+	}
+
+	// Check that data has the expected "//" comment string to trim off.
+	if len(data) < 3 {
+		return realTimeTradingData{}, fmt.Errorf("expected data should be larger")
+	}
+
+	// Unmarshal the data after the "//" comment string.
+	if err := json.Unmarshal(data[3:], &parsed); err != nil {
+		return realTimeTradingData{}, err
+	}
+
+	if len(parsed) == 0 {
+		return realTimeTradingData{}, errors.New("expected at least one entry")
+	}
+
+	timestamp, err := time.Parse("2006-01-02T15:04:05Z", parsed[0].Lt_dts)
+	if err != nil {
+		return realTimeTradingData{}, err
+	}
+
+	price, err := strconv.ParseFloat(parsed[0].L, 64)
+	if err != nil {
+		return realTimeTradingData{}, err
+	}
+
+	change, err := strconv.ParseFloat(parsed[0].C, 64)
+	if err != nil {
+		return realTimeTradingData{}, err
+	}
+
+	percentChange, err := strconv.ParseFloat(parsed[0].Cp, 64)
+	if err != nil {
+		return realTimeTradingData{}, err
+	}
+
+	return realTimeTradingData{
+		timestamp:     timestamp,
+		price:         price,
+		change:        change,
+		percentChange: percentChange,
+	}, nil
 }
