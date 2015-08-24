@@ -5,29 +5,13 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"sort"
 	"strconv"
 	"time"
 )
-
-var (
-	// Google is a tradingHistoryProvider that gets data from Google Finance.
-	Google = tradingHistoryProvider{
-		getTradingHistory: getTradingHistoryFromGoogle,
-	}
-
-	// Yahoo is a tradingHistoryProvider that gets data from Yahoo Finance.
-	Yahoo = tradingHistoryProvider{
-		getTradingHistory: getTradingHistoryFromYahoo,
-	}
-)
-
-// tradingHistoryProvider is a struct that provides a getTradingHistory function.
-type tradingHistoryProvider struct {
-	getTradingHistory func(symbol string, startDate, endDate time.Time) (tradingHistory, error)
-}
 
 // tradingHistory is a sorted tradingSession slice with the most recent at the front.
 type tradingHistory []tradingSession
@@ -55,6 +39,22 @@ type tradingSession struct {
 	low    float64
 	close  float64
 	volume int64
+}
+
+func getTradingHistory(symbol string, startDate, endDate time.Time) (tradingHistory, error) {
+	tradingFuncs := []func(symbol string, startDate, endDate time.Time) (tradingHistory, error){
+		getTradingHistoryFromGoogle,
+		getTradingHistoryFromYahoo,
+	}
+	for _, n := range rand.Perm(len(tradingFuncs)) {
+		th, err := tradingFuncs[n](symbol, startDate, endDate)
+		if err != nil {
+			log.Printf("tradingFunc %d: %v", n, err)
+			continue
+		}
+		return th, nil
+	}
+	return nil, fmt.Errorf("all %d tradingFuncs failed", len(tradingFuncs))
 }
 
 func getTradingHistoryFromGoogle(symbol string, startDate, endDate time.Time) (tradingHistory, error) {
@@ -193,8 +193,6 @@ func getTradingHistoryFromYahoo(symbol string, startDate, endDate time.Time) (tr
 			}
 			return nil, err
 		}
-
-		log.Printf("record: %+v", record)
 
 		// format: Date, Open, High, Low, Close, Volume, Adj. Close
 		if len(record) != 7 {
