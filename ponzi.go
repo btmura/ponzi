@@ -164,7 +164,7 @@ loop:
 
 func refreshStockData(sd *stockData) {
 	end := time.Now()
-	start := end.Add(-time.Hour * 24 * 5)
+	start := end.Add(-time.Hour * 24 * 30)
 
 	// Map from symbol to tradingHistory channel.
 	scm := map[string]chan tradingHistory{}
