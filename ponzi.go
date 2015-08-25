@@ -19,7 +19,8 @@ type stockData struct {
 	// refreshTime is when the data was last refreshed.
 	refreshTime time.Time
 
-	tradingDates tradingDates
+	// tradingDates is a chronological set of times.
+	tradingDates []time.Time
 
 	stocks []stock
 }
@@ -211,7 +212,7 @@ func refreshStockData(sd *stockData) {
 	sd.RUnlock()
 
 	// Record the unique trading dates for all data.
-	var td tradingDates
+	var dates sortableTimes
 	tdm := map[time.Time]bool{}
 
 	// Extract the tradingHistory from each channel into a new map.
@@ -227,7 +228,7 @@ func refreshStockData(sd *stockData) {
 			tsm[symbol][ts.date] = ts
 			if !tdm[ts.date] {
 				tdm[ts.date] = true
-				td = append(td, ts.date)
+				dates = append(dates, ts.date)
 			}
 		}
 	}
@@ -254,18 +255,18 @@ func refreshStockData(sd *stockData) {
 			tsm[symbol][ts.date] = ts
 			if !tdm[ts.date] {
 				tdm[ts.date] = true
-				td = append(td, ts.date)
+				dates = append(dates, ts.date)
 			}
 		}
 	}
 
 	// Sort the trading dates with most recent at the back.
-	sort.Sort(td)
+	sort.Sort(dates)
 
 	// Acquire a write lock and write the updated data.
 	sd.Lock()
 	sd.refreshTime = time.Now()
-	sd.tradingDates = td
+	sd.tradingDates = dates
 	for i, s := range sd.stocks {
 		sd.stocks[i].tradingHistory = thm[s.symbol]
 		sd.stocks[i].tradingSessionMap = tsm[s.symbol]
@@ -294,21 +295,21 @@ func convertTradingHistory(th tradingHistory) stockTradingHistory {
 	return sth
 }
 
-type tradingDates []time.Time
+type sortableTimes []time.Time
 
 // Len implements sort.Interface
-func (td tradingDates) Len() int {
-	return len(td)
+func (st sortableTimes) Len() int {
+	return len(st)
 }
 
 // Less implements sort.Interface
-func (td tradingDates) Less(i, j int) bool {
-	return td[i].Before(td[j])
+func (st sortableTimes) Less(i, j int) bool {
+	return st[i].Before(st[j])
 }
 
 // Swap implements sort.Interface
-func (td tradingDates) Swap(i, j int) {
-	td[i], td[j] = td[j], td[i]
+func (st sortableTimes) Swap(i, j int) {
+	st[i], st[j] = st[j], st[i]
 }
 
 // shortenInt shortens larger numbers and appends a quantity suffix.
