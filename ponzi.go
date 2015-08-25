@@ -13,6 +13,7 @@ import (
 )
 
 type stockData struct {
+	// Embedded mutex that guards the stockData struct.
 	sync.RWMutex
 
 	// refreshTime is when the data was last refreshed.
@@ -64,8 +65,10 @@ func main() {
 		for {
 			refreshStockData(sd)
 
-			// Signal termbox to update itself and goto sleep.
+			// Signal termbox to repaint by queuing an interrupt event.
 			termbox.Interrupt()
+
+			// Sleep a bit till the next refresh.
 			time.Sleep(time.Hour)
 		}
 	}()
