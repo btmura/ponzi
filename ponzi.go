@@ -27,7 +27,6 @@ type stockData struct {
 
 type stock struct {
 	symbol            string
-	tradingHistory    stockTradingHistory
 	tradingSessionMap map[time.Time]stockTradingSession
 }
 
@@ -216,12 +215,10 @@ func refreshStockData(sd *stockData) {
 	tdm := map[time.Time]bool{}
 
 	// Extract the tradingHistory from each channel into a new map.
-	thm := map[string]stockTradingHistory{}
 	tsm := map[string]map[time.Time]stockTradingSession{}
 	for symbol, ch := range scm {
 		// TODO(btmura): detect error value from channel
-		thm[symbol] = convertTradingHistory(<-ch)
-		for _, ts := range thm[symbol] {
+		for _, ts := range convertTradingHistory(<-ch) {
 			if _, ok := tsm[symbol]; !ok {
 				tsm[symbol] = map[time.Time]stockTradingSession{}
 			}
@@ -247,8 +244,6 @@ func refreshStockData(sd *stockData) {
 		}
 
 		if _, ok := tsm[symbol][ts.date]; !ok {
-			thm[symbol] = append([]stockTradingSession{ts}, thm[symbol]...)
-
 			if _, ok := tsm[symbol]; !ok {
 				tsm[symbol] = map[time.Time]stockTradingSession{}
 			}
@@ -268,7 +263,6 @@ func refreshStockData(sd *stockData) {
 	sd.refreshTime = time.Now()
 	sd.tradingDates = dates
 	for i, s := range sd.stocks {
-		sd.stocks[i].tradingHistory = thm[s.symbol]
 		sd.stocks[i].tradingSessionMap = tsm[s.symbol]
 	}
 	sd.Unlock()
