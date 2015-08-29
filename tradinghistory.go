@@ -16,24 +16,6 @@ import (
 	"time"
 )
 
-// tradingHistory is a sorted tradingSession slice with the most recent at the front.
-type tradingHistory []tradingSession
-
-// Len implements sort.Interface.
-func (th tradingHistory) Len() int {
-	return len(th)
-}
-
-// Less implements sort.Interface.
-func (th tradingHistory) Less(i, j int) bool {
-	return th[i].date.Before(th[j].date)
-}
-
-// Swap implements sort.Interface.
-func (th tradingHistory) Swap(i, j int) {
-	th[i], th[j] = th[j], th[i]
-}
-
 // tradingSession contains stats from a single trading session.
 type tradingSession struct {
 	date   time.Time
@@ -51,10 +33,10 @@ type realTimeTradingData struct {
 	percentChange float64
 }
 
-func getTradingHistory(symbol string, startDate, endDate time.Time) (tradingHistory, error) {
-	tradingFuncs := []func(symbol string, startDate, endDate time.Time) (tradingHistory, error){
-		getTradingHistoryFromGoogle,
-		getTradingHistoryFromYahoo,
+func getTradingSessions(symbol string, startDate, endDate time.Time) ([]tradingSession, error) {
+	tradingFuncs := []func(symbol string, startDate, endDate time.Time) ([]tradingSession, error){
+		getTradingSessionsFromGoogle,
+		getTradingSessionsFromYahoo,
 	}
 	for _, n := range rand.Perm(len(tradingFuncs)) {
 		th, err := tradingFuncs[n](symbol, startDate, endDate)
@@ -67,7 +49,7 @@ func getTradingHistory(symbol string, startDate, endDate time.Time) (tradingHist
 	return nil, fmt.Errorf("all %d tradingFuncs failed", len(tradingFuncs))
 }
 
-func getTradingHistoryFromGoogle(symbol string, startDate, endDate time.Time) (tradingHistory, error) {
+func getTradingSessionsFromGoogle(symbol string, startDate, endDate time.Time) ([]tradingSession, error) {
 	formatTime := func(date time.Time) string {
 		return date.Format("Jan 02, 2006")
 	}
@@ -91,7 +73,7 @@ func getTradingHistoryFromGoogle(symbol string, startDate, endDate time.Time) (t
 	}
 	defer resp.Body.Close()
 
-	var th tradingHistory
+	var tss []tradingSession
 	r := csv.NewReader(resp.Body)
 	for i := 0; ; i++ {
 		record, err := r.Read()
@@ -151,7 +133,7 @@ func getTradingHistoryFromGoogle(symbol string, startDate, endDate time.Time) (t
 				return nil, err
 			}
 
-			th = append(th, tradingSession{
+			tss = append(tss, tradingSession{
 				date:   date,
 				open:   open,
 				high:   high,
@@ -163,12 +145,12 @@ func getTradingHistoryFromGoogle(symbol string, startDate, endDate time.Time) (t
 	}
 
 	// Most recent trading sessions at the front.
-	sort.Reverse(th)
+	sort.Reverse(sortableTradingSessions(tss))
 
-	return th, nil
+	return tss, nil
 }
 
-func getTradingHistoryFromYahoo(symbol string, startDate, endDate time.Time) (tradingHistory, error) {
+func getTradingSessionsFromYahoo(symbol string, startDate, endDate time.Time) ([]tradingSession, error) {
 	v := url.Values{}
 	v.Set("s", symbol)
 	v.Set("a", strconv.Itoa(int(startDate.Month())-1))
@@ -193,7 +175,7 @@ func getTradingHistoryFromYahoo(symbol string, startDate, endDate time.Time) (tr
 	}
 	defer resp.Body.Close()
 
-	var th tradingHistory
+	var tss []tradingSession
 	r := csv.NewReader(resp.Body)
 	for i := 0; ; i++ {
 		record, err := r.Read()
@@ -255,7 +237,7 @@ func getTradingHistoryFromYahoo(symbol string, startDate, endDate time.Time) (tr
 
 			// Ignore adjusted close value to keep Google and Yahoo APIs the same.
 
-			th = append(th, tradingSession{
+			tss = append(tss, tradingSession{
 				date:   date,
 				open:   open,
 				high:   high,
@@ -267,9 +249,9 @@ func getTradingHistoryFromYahoo(symbol string, startDate, endDate time.Time) (tr
 	}
 
 	// Most recent trading sessions at the front.
-	sort.Reverse(th)
+	sort.Reverse(sortableTradingSessions(tss))
 
-	return th, nil
+	return tss, nil
 }
 
 func getRealTimeTradingData(symbol string) (realTimeTradingData, error) {
@@ -342,4 +324,22 @@ func getRealTimeTradingData(symbol string) (realTimeTradingData, error) {
 		change:        change,
 		percentChange: percentChange,
 	}, nil
+}
+
+// sortableTradingSessions is a sortable tradingSession slice.
+type sortableTradingSessions []tradingSession
+
+// Len implements sort.Interface.
+func (sts sortableTradingSessions) Len() int {
+	return len(sts)
+}
+
+// Less implements sort.Interface.
+func (sts sortableTradingSessions) Less(i, j int) bool {
+	return sts[i].date.Before(sts[j].date)
+}
+
+// Swap implements sort.Interface.
+func (sts sortableTradingSessions) Swap(i, j int) {
+	sts[i], sts[j] = sts[j], sts[i]
 }

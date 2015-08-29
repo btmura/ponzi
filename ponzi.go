@@ -171,7 +171,7 @@ func refreshStockData(sd *stockData) {
 	start := end.Add(-time.Hour * 24 * 30)
 
 	// Map from symbol to tradingHistory channel.
-	scm := map[string]chan tradingHistory{}
+	scm := map[string]chan []tradingSession{}
 
 	// Map from symbol to realTimeTradingData channel.
 	rcm := map[string]chan realTimeTradingData{}
@@ -185,14 +185,14 @@ func refreshStockData(sd *stockData) {
 		}
 
 		// Launch a go routine that will stuff the tradingHistory into the channel.
-		ch := make(chan tradingHistory)
+		ch := make(chan []tradingSession)
 		scm[s.symbol] = ch
-		go func(symbol string, ch chan tradingHistory) {
-			th, err := getTradingHistory(symbol, start, end)
+		go func(symbol string, ch chan []tradingSession) {
+			tss, err := getTradingSessions(symbol, start, end)
 			if err != nil {
-				log.Printf("getTradingHistory(%s): %v", symbol, err)
+				log.Printf("getTradingSessions(%s): %v", symbol, err)
 			}
-			ch <- th
+			ch <- tss
 		}(s.symbol, ch)
 
 		// Launch a go routine that will stuff the realTimeTradingData into the channel.
@@ -266,9 +266,9 @@ func refreshStockData(sd *stockData) {
 	sd.Unlock()
 }
 
-func convertTradingHistory(th tradingHistory) []stockTradingSession {
+func convertTradingHistory(tss []tradingSession) []stockTradingSession {
 	var sts []stockTradingSession
-	for _, ts := range th {
+	for _, ts := range tss {
 		sts = append(sts, stockTradingSession{
 			date:   ts.date,
 			close:  ts.close,
