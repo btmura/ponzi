@@ -305,22 +305,28 @@ func getRealTimeTradingData(symbols []string) ([]realTimeTradingData, error) {
 	for _, p := range parsed {
 		timestamp, err := time.Parse("2006-01-02T15:04:05Z", p.Lt_dts)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("p: %+v timestamp: %v", p, err)
 		}
 
 		price, err := strconv.ParseFloat(p.L, 64)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("p: %+v price: %v", p, err)
 		}
 
-		change, err := strconv.ParseFloat(p.C, 64)
-		if err != nil {
-			return nil, err
+		var change float64
+		if p.C != "" { // C is empty after market close.
+			change, err = strconv.ParseFloat(p.C, 64)
+			if err != nil {
+				return nil, fmt.Errorf("p: %+v change: %v", p, err)
+			}
 		}
 
-		percentChange, err := strconv.ParseFloat(p.Cp, 64)
-		if err != nil {
-			return nil, err
+		var percentChange float64
+		if p.Cp != "" { // Cp is empty after market close.
+			percentChange, err = strconv.ParseFloat(p.Cp, 64)
+			if err != nil {
+				return nil, fmt.Errorf("p: %+v percentChange: %v", p, err)
+			}
 		}
 
 		rds = append(rds, realTimeTradingData{
