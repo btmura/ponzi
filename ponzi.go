@@ -18,6 +18,9 @@ const (
 
 	// tsColumnWidth is the width of the middle columns that have trading session data.
 	tsColumnWidth = 10
+
+	// padding is the amount of padding around all edges and in between cells.
+	padding = 1
 )
 
 type stockData struct {
@@ -101,31 +104,31 @@ loop:
 		print(0, 0, sd.refreshTime.Format("1/2/06 3:04 PM"))
 
 		// Trim down trading dates to what fits the screen.
-		tsColumnCount := (w - symbolColumnWidth) / tsColumnWidth
+		tsColumnCount := (w - symbolColumnWidth - padding) / (tsColumnWidth + padding)
 		if tsColumnCount > len(sd.tradingDates) {
 			tsColumnCount = len(sd.tradingDates)
 		}
 		tradingDates := sd.tradingDates[len(sd.tradingDates)-tsColumnCount:]
 
-		x := symbolColumnWidth
+		x := symbolColumnWidth + padding*2
 		for _, td := range tradingDates {
-			if x+tsColumnWidth > w {
+			if x+tsColumnWidth+padding > w {
 				break
 			}
 			print(x, 2, "%[1]*s", tsColumnWidth, td.Format("1/2"))
 			print(x, 3, "%[1]*s", tsColumnWidth, td.Format("Mon"))
-			x = x + tsColumnWidth
+			x = x + tsColumnWidth + padding
 		}
 
 		for i, s := range sd.stocks {
-			x, y := 0, 5+i*5
+			x, y := padding, 5+i*5
 			fg = termbox.ColorDefault
 
 			print(x, y, "%[1]*s", symbolColumnWidth, s.symbol)
-			x = x + symbolColumnWidth
+			x = x + symbolColumnWidth + padding
 
 			for _, td := range tradingDates {
-				if x+tsColumnWidth > w {
+				if x+tsColumnWidth+padding > w {
 					break
 				}
 
@@ -151,7 +154,7 @@ loop:
 					print(x, y+1, "%+[1]*.2f", tsColumnWidth, ts.change)
 					print(x, y+2, "%+[1]*.2f%%", tsColumnWidth-1, ts.percentChange)
 				}
-				x = x + tsColumnWidth
+				x = x + tsColumnWidth + padding
 			}
 		}
 
