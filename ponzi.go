@@ -30,8 +30,6 @@ type stock struct {
 	tradingSessionMap map[time.Time]stockTradingSession
 }
 
-type stockTradingHistory []stockTradingSession
-
 type stockTradingSession struct {
 	date          time.Time
 	close         float64
@@ -268,10 +266,10 @@ func refreshStockData(sd *stockData) {
 	sd.Unlock()
 }
 
-func convertTradingHistory(th tradingHistory) stockTradingHistory {
-	var sth stockTradingHistory
+func convertTradingHistory(th tradingHistory) []stockTradingSession {
+	var sts []stockTradingSession
 	for _, ts := range th {
-		sth = append(sth, stockTradingSession{
+		sts = append(sts, stockTradingSession{
 			date:   ts.date,
 			close:  ts.close,
 			volume: ts.volume,
@@ -279,14 +277,14 @@ func convertTradingHistory(th tradingHistory) stockTradingHistory {
 	}
 
 	// Calculate the price change which is today's minus yesterday's close.
-	for i := range sth {
-		if i+1 < len(sth) {
-			sth[i].change = sth[i].close - sth[i+1].close
-			sth[i].percentChange = sth[i].change / sth[i+1].close * 100.0
+	for i := range sts {
+		if i+1 < len(sts) {
+			sts[i].change = sts[i].close - sts[i+1].close
+			sts[i].percentChange = sts[i].change / sts[i+1].close * 100.0
 		}
 	}
 
-	return sth
+	return sts
 }
 
 type sortableTimes []time.Time
