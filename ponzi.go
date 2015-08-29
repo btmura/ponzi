@@ -133,7 +133,9 @@ loop:
 
 		sd.RLock()
 
-		print(0, 0, sd.refreshTime.Format("1/2/06 3:04 PM"))
+		if !sd.refreshTime.IsZero() {
+			print(0, 0, sd.refreshTime.Format("1/2/06 3:04 PM"))
+		}
 
 		// Trim down trading dates to what fits the screen.
 		tsColumnCount := (w - symbolColumnWidth - padding) / (tsColumnWidth + padding)
