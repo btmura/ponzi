@@ -42,6 +42,15 @@ var (
 		termbox.Attribute(161),
 		termbox.Attribute(197),
 	}
+
+	// weekdayColors are background colors for the weekdays. Requires 256 colors.
+	weekdayColors = map[time.Weekday]termbox.Attribute{
+		time.Monday:    termbox.Attribute(18),
+		time.Tuesday:   termbox.Attribute(19),
+		time.Wednesday: termbox.Attribute(20),
+		time.Thursday:  termbox.Attribute(21),
+		time.Friday:    termbox.Attribute(22),
+	}
 )
 
 type stockData struct {
@@ -138,6 +147,14 @@ loop:
 			if x+tsColumnWidth+padding > w {
 				break
 			}
+
+			switch {
+			case has256Colors:
+				bg = weekdayColors[td.Weekday()]
+			default:
+				bg = termbox.ColorDefault
+			}
+
 			print(x, 2, "%[1]*s", tsColumnWidth, td.Format("1/2"))
 			print(x, 3, "%[1]*s", tsColumnWidth, td.Format("Mon"))
 			x = x + tsColumnWidth + padding
