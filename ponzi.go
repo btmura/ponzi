@@ -12,6 +12,14 @@ import (
 	"github.com/nsf/termbox-go"
 )
 
+const (
+	// symbolColumnWidth is the width of the leftmost column with the symbols.
+	symbolColumnWidth = 6
+
+	// tsColumnWidth is the width of the middle columns that have trading session data.
+	tsColumnWidth = 10
+)
+
 type stockData struct {
 	// Embedded mutex that guards the stockData struct.
 	sync.RWMutex
@@ -19,9 +27,10 @@ type stockData struct {
 	// refreshTime is when the data was last refreshed.
 	refreshTime time.Time
 
-	// tradingDates is a chronological set of times.
+	// tradingDates is the chronological set of times shown at the top.
 	tradingDates []time.Time
 
+	// stocks are stock symbols with trading session data.
 	stocks []stock
 }
 
@@ -71,11 +80,6 @@ func main() {
 		}
 	}()
 
-	const (
-		symbolWidth = 6
-		tsCellWidth = 10
-	)
-
 loop:
 	for {
 		if err := termbox.Clear(termbox.ColorDefault, termbox.ColorDefault); err != nil {
@@ -97,31 +101,31 @@ loop:
 		print(0, 0, sd.refreshTime.Format("1/2/06 3:04 PM"))
 
 		// Trim down trading dates to what fits the screen.
-		tsCellCount := (w - symbolWidth) / tsCellWidth
-		if tsCellCount > len(sd.tradingDates) {
-			tsCellCount = len(sd.tradingDates)
+		tsColumnCount := (w - symbolColumnWidth) / tsColumnWidth
+		if tsColumnCount > len(sd.tradingDates) {
+			tsColumnCount = len(sd.tradingDates)
 		}
-		tradingDates := sd.tradingDates[len(sd.tradingDates)-tsCellCount:]
+		tradingDates := sd.tradingDates[len(sd.tradingDates)-tsColumnCount:]
 
-		x := symbolWidth
+		x := symbolColumnWidth
 		for _, td := range tradingDates {
-			if x+tsCellWidth > w {
+			if x+tsColumnWidth > w {
 				break
 			}
-			print(x, 2, "%[1]*s", tsCellWidth, td.Format("1/2"))
-			print(x, 3, "%[1]*s", tsCellWidth, td.Format("Mon"))
-			x = x + tsCellWidth
+			print(x, 2, "%[1]*s", tsColumnWidth, td.Format("1/2"))
+			print(x, 3, "%[1]*s", tsColumnWidth, td.Format("Mon"))
+			x = x + tsColumnWidth
 		}
 
 		for i, s := range sd.stocks {
 			x, y := 0, 5+i*5
 			fg = termbox.ColorDefault
 
-			print(x, y, "%[1]*s", symbolWidth, s.symbol)
-			x = x + symbolWidth
+			print(x, y, "%[1]*s", symbolColumnWidth, s.symbol)
+			x = x + symbolColumnWidth
 
 			for _, td := range tradingDates {
-				if x+tsCellWidth > w {
+				if x+tsColumnWidth > w {
 					break
 				}
 
@@ -129,8 +133,8 @@ loop:
 					fg = termbox.ColorDefault
 
 					// Print price and volume in default color.
-					print(x, y, "%[1]*.2f", tsCellWidth, ts.close)
-					print(x, y+3, "%[1]*s", tsCellWidth, shortenInt(ts.volume))
+					print(x, y, "%[1]*.2f", tsColumnWidth, ts.close)
+					print(x, y+3, "%[1]*s", tsColumnWidth, shortenInt(ts.volume))
 
 					switch {
 					case ts.change > 0:
@@ -144,10 +148,10 @@ loop:
 					}
 
 					// Print change and % change in green or red.
-					print(x, y+1, "%+[1]*.2f", tsCellWidth, ts.change)
-					print(x, y+2, "%+[1]*.2f%%", tsCellWidth-1, ts.percentChange)
+					print(x, y+1, "%+[1]*.2f", tsColumnWidth, ts.change)
+					print(x, y+2, "%+[1]*.2f%%", tsColumnWidth-1, ts.percentChange)
 				}
-				x = x + tsCellWidth
+				x = x + tsColumnWidth
 			}
 		}
 
