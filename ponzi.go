@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"math"
 	"math/rand"
 	"sort"
 	"strconv"
@@ -14,13 +15,33 @@ import (
 
 const (
 	// symbolColumnWidth is the width of the leftmost column with the symbols.
-	symbolColumnWidth = 6
+	symbolColumnWidth = 5
 
 	// tsColumnWidth is the width of the middle columns that have trading session data.
-	tsColumnWidth = 10
+	tsColumnWidth = 8
 
 	// padding is the amount of padding around all edges and in between cells.
 	padding = 1
+)
+
+var (
+	// positiveColors are background colors for positive price changes. Requires 256 colors.
+	positiveColors = [5]termbox.Attribute{
+		termbox.Attribute(23),
+		termbox.Attribute(29),
+		termbox.Attribute(35),
+		termbox.Attribute(41),
+		termbox.Attribute(47),
+	}
+
+	// negativeColors are background colors for negative price changes. Requires 256 colors.
+	negativeColors = [5]termbox.Attribute{
+		termbox.Attribute(53),
+		termbox.Attribute(89),
+		termbox.Attribute(125),
+		termbox.Attribute(161),
+		termbox.Attribute(197),
+	}
 )
 
 type stockData struct {
@@ -57,6 +78,8 @@ func main() {
 	defer termbox.Close()
 
 	rand.Seed(time.Now().Unix())
+
+	has256Colors := termbox.SetOutputMode(termbox.Output256) == termbox.Output256
 
 	sd := &stockData{
 		stocks: []stock{
@@ -122,7 +145,7 @@ loop:
 
 		for i, s := range sd.stocks {
 			x, y := padding, 5+i*5
-			fg = termbox.ColorDefault
+			fg, bg = termbox.ColorDefault, termbox.ColorDefault
 
 			print(x, y, "%[1]*s", symbolColumnWidth, s.symbol)
 			x = x + symbolColumnWidth + padding
@@ -133,6 +156,30 @@ loop:
 				}
 
 				if ts, ok := s.tradingSessionMap[td]; ok {
+					c := 0
+					abs := math.Abs(ts.percentChange)
+					switch {
+					case abs > 0.6:
+						c = 5
+					case abs > 0.4:
+						c = 4
+					case abs > 0.2:
+						c = 3
+					case abs > 0.1:
+						c = 2
+					case abs > 0.05:
+						c = 1
+					}
+
+					switch {
+					case has256Colors && ts.change > 0:
+						bg = positiveColors[c]
+					case has256Colors && ts.change < 0:
+						bg = negativeColors[c]
+					default:
+						bg = termbox.ColorDefault
+					}
+
 					fg = termbox.ColorDefault
 
 					// Print price and volume in default color.
@@ -142,17 +189,15 @@ loop:
 					switch {
 					case ts.change > 0:
 						fg = termbox.ColorGreen
-
 					case ts.change < 0:
 						fg = termbox.ColorRed
-
 					default:
 						fg = termbox.ColorDefault
 					}
 
 					// Print change and % change in green or red.
 					print(x, y+1, "%+[1]*.2f", tsColumnWidth, ts.change)
-					print(x, y+2, "%+[1]*.2f%%", tsColumnWidth-1, ts.percentChange)
+					print(x, y+2, "%+[1]*.2f%%", tsColumnWidth-1, ts.percentChange*100.0)
 				}
 				x = x + tsColumnWidth + padding
 			}
@@ -288,7 +333,7 @@ func convertTradingHistory(tss []tradingSession) []stockTradingSession {
 	for i := range sts {
 		if i+1 < len(sts) {
 			sts[i].change = sts[i].close - sts[i+1].close
-			sts[i].percentChange = sts[i].change / sts[i+1].close * 100.0
+			sts[i].percentChange = sts[i].change / sts[i+1].close
 		}
 	}
 
