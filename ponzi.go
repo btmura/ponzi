@@ -174,11 +174,11 @@ func refreshStockData(sd *stockData) {
 	end := time.Now()
 	start := end.Add(-time.Hour * 24 * 30)
 
-	// Map from symbol to tradingHistory channel.
+	// Map from symbol to tradingSessions channel.
 	scm := map[string]chan []tradingSession{}
 
-	// Map from symbol to realTimeTradingData channel.
-	rcm := map[string]chan realTimeTradingData{}
+	// Collect the symbols for a batch call to get the real time trading data.
+	var symbols []string
 
 	// Acquire a read lock to get the symbols and launch a go routine per symbol.
 	sd.RLock()
@@ -188,7 +188,9 @@ func refreshStockData(sd *stockData) {
 			continue
 		}
 
-		// Launch a go routine that will stuff the tradingHistory into the channel.
+		symbols = append(symbols, s.symbol)
+
+		// Launch a go routine that will stuff the tradingSessions into the channel.
 		ch := make(chan []tradingSession)
 		scm[s.symbol] = ch
 		go func(symbol string, ch chan []tradingSession) {
@@ -198,19 +200,19 @@ func refreshStockData(sd *stockData) {
 			}
 			ch <- tss
 		}(s.symbol, ch)
-
-		// Launch a go routine that will stuff the realTimeTradingData into the channel.
-		rch := make(chan realTimeTradingData)
-		rcm[s.symbol] = rch
-		go func(symbol string, rch chan realTimeTradingData) {
-			rd, err := getRealTimeTradingData(symbol)
-			if err != nil {
-				log.Printf("getRealTimeTradingData(%s): %v", symbol, err)
-			}
-			rch <- rd
-		}(s.symbol, rch)
 	}
 	sd.RUnlock()
+
+	// Batch get the real time trading data using the aggregated symbols.
+	rc := make(chan []realTimeTradingData)
+	go func() {
+		rds, err := getRealTimeTradingData(symbols)
+		if err != nil {
+			log.Printf("getRealTimeTradingData(%v): %v", symbols, err)
+		}
+		rc <- rds
+		close(rc)
+	}()
 
 	// Record the unique trading dates for all data.
 	var dates sortableTimes
@@ -232,11 +234,10 @@ func refreshStockData(sd *stockData) {
 		}
 	}
 
-	// Extract the realTimeTradingData from each channel.
-	for symbol, rch := range rcm {
+	// Extract the realTimeTradingData from the channel.
+	for _, rd := range <-rc {
 
 		// TODO(btmura): detect error value from channel
-		rd := <-rch
 
 		ts := stockTradingSession{
 			date:          time.Date(rd.timestamp.Year(), rd.timestamp.Month(), rd.timestamp.Day(), 0, 0, 0, 0, rd.timestamp.Location()),
@@ -245,11 +246,11 @@ func refreshStockData(sd *stockData) {
 			percentChange: rd.percentChange,
 		}
 
-		if _, ok := tsm[symbol][ts.date]; !ok {
-			if _, ok := tsm[symbol]; !ok {
-				tsm[symbol] = map[time.Time]stockTradingSession{}
+		if _, ok := tsm[rd.symbol][ts.date]; !ok {
+			if _, ok := tsm[rd.symbol]; !ok {
+				tsm[rd.symbol] = map[time.Time]stockTradingSession{}
 			}
-			tsm[symbol][ts.date] = ts
+			tsm[rd.symbol][ts.date] = ts
 			if !tdm[ts.date] {
 				tdm[ts.date] = true
 				dates = append(dates, ts.date)

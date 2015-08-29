@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -27,6 +28,7 @@ type tradingSession struct {
 }
 
 type realTimeTradingData struct {
+	symbol        string
 	timestamp     time.Time
 	price         float64
 	change        float64
@@ -254,25 +256,26 @@ func getTradingSessionsFromYahoo(symbol string, startDate, endDate time.Time) ([
 	return tss, nil
 }
 
-func getRealTimeTradingData(symbol string) (realTimeTradingData, error) {
+func getRealTimeTradingData(symbols []string) ([]realTimeTradingData, error) {
 	v := url.Values{}
 	v.Set("client", "ig")
-	v.Set("q", symbol)
+	v.Set("q", strings.Join(symbols, ","))
 
 	u, err := url.Parse("http://www.google.com/finance/info")
 	if err != nil {
-		return realTimeTradingData{}, err
+		return nil, err
 	}
 	u.RawQuery = v.Encode()
 	log.Printf("url: %s", u)
 
 	resp, err := http.Get(u.String())
 	if err != nil {
-		return realTimeTradingData{}, err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	parsed := []struct {
+		T      string // ticker symbol
 		L      string // price
 		C      string // change
 		Cp     string // percent change
@@ -281,49 +284,55 @@ func getRealTimeTradingData(symbol string) (realTimeTradingData, error) {
 
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return realTimeTradingData{}, err
+		return nil, err
 	}
 
 	// Check that data has the expected "//" comment string to trim off.
 	if len(data) < 3 {
-		return realTimeTradingData{}, fmt.Errorf("expected data should be larger")
+		return nil, fmt.Errorf("expected data should be larger")
 	}
 
 	// Unmarshal the data after the "//" comment string.
 	if err := json.Unmarshal(data[3:], &parsed); err != nil {
-		return realTimeTradingData{}, err
+		return nil, err
 	}
 
 	if len(parsed) == 0 {
-		return realTimeTradingData{}, errors.New("expected at least one entry")
+		return nil, errors.New("expected at least one entry")
 	}
 
-	timestamp, err := time.Parse("2006-01-02T15:04:05Z", parsed[0].Lt_dts)
-	if err != nil {
-		return realTimeTradingData{}, err
+	var rds []realTimeTradingData
+	for _, p := range parsed {
+		timestamp, err := time.Parse("2006-01-02T15:04:05Z", p.Lt_dts)
+		if err != nil {
+			return nil, err
+		}
+
+		price, err := strconv.ParseFloat(p.L, 64)
+		if err != nil {
+			return nil, err
+		}
+
+		change, err := strconv.ParseFloat(p.C, 64)
+		if err != nil {
+			return nil, err
+		}
+
+		percentChange, err := strconv.ParseFloat(p.Cp, 64)
+		if err != nil {
+			return nil, err
+		}
+
+		rds = append(rds, realTimeTradingData{
+			symbol:        p.T,
+			timestamp:     timestamp,
+			price:         price,
+			change:        change,
+			percentChange: percentChange,
+		})
 	}
 
-	price, err := strconv.ParseFloat(parsed[0].L, 64)
-	if err != nil {
-		return realTimeTradingData{}, err
-	}
-
-	change, err := strconv.ParseFloat(parsed[0].C, 64)
-	if err != nil {
-		return realTimeTradingData{}, err
-	}
-
-	percentChange, err := strconv.ParseFloat(parsed[0].Cp, 64)
-	if err != nil {
-		return realTimeTradingData{}, err
-	}
-
-	return realTimeTradingData{
-		timestamp:     timestamp,
-		price:         price,
-		change:        change,
-		percentChange: percentChange,
-	}, nil
+	return rds, nil
 }
 
 // sortableTradingSessions is a sortable tradingSession slice.
