@@ -104,6 +104,7 @@ func main() {
 	}
 
 	inputSymbol := ""
+	selectedIndex := 0
 
 	// Launch a go routine to periodically refresh the stock data.
 	go func() {
@@ -169,7 +170,13 @@ loop:
 
 		for i, s := range sd.stocks {
 			x, y := padding, 5+i*5
-			fg, bg = termbox.ColorDefault, termbox.ColorDefault
+			bg = termbox.ColorDefault
+
+			if i == selectedIndex {
+				fg = termbox.ColorYellow
+			} else {
+				fg = termbox.ColorDefault
+			}
 
 			print(x, y, "%[1]*s", symbolColumnWidth, s.symbol)
 			x = x + symbolColumnWidth + padding
@@ -180,8 +187,10 @@ loop:
 				}
 
 				if ts, ok := s.tradingSessionMap[td]; ok {
-					c := 0
+					fg = termbox.ColorDefault
+
 					abs := math.Abs(ts.percentChange)
+					c := 0
 					switch {
 					case abs > 0.6:
 						c = 5
@@ -203,8 +212,6 @@ loop:
 					default:
 						bg = termbox.ColorDefault
 					}
-
-					fg = termbox.ColorDefault
 
 					// Print price and volume in default color.
 					print(x, y, "%[1]*.2f", tsColumnWidth, ts.close)
@@ -242,13 +249,38 @@ loop:
 			case termbox.KeyEnter:
 				sd.Lock()
 				sd.stocks = append(sd.stocks, stock{symbol: inputSymbol})
+				if selectedIndex < 0 {
+					selectedIndex++
+				}
 				sd.Unlock()
 				inputSymbol = ""
+
+			case termbox.KeyDelete:
+				sd.Lock()
+				sd.stocks = append(sd.stocks[:selectedIndex], sd.stocks[selectedIndex+1:]...)
+				if selectedIndex >= len(sd.stocks) {
+					selectedIndex--
+				}
+				sd.Unlock()
 
 			case termbox.KeyBackspace, termbox.KeyBackspace2:
 				if len(inputSymbol) > 0 {
 					inputSymbol = inputSymbol[:len(inputSymbol)-1]
 				}
+
+			case termbox.KeyArrowUp:
+				sd.RLock()
+				if selectedIndex-1 >= 0 {
+					selectedIndex--
+				}
+				sd.RUnlock()
+
+			case termbox.KeyArrowDown:
+				sd.RLock()
+				if selectedIndex+1 < len(sd.stocks) {
+					selectedIndex++
+				}
+				sd.RUnlock()
 
 			default:
 				inputSymbol += strings.ToUpper(string(ev.Ch))
