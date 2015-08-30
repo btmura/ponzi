@@ -247,13 +247,15 @@ loop:
 				break loop
 
 			case termbox.KeyEnter:
-				sd.Lock()
-				sd.stocks = append(sd.stocks, stock{symbol: inputSymbol})
-				if selectedIndex < 0 {
-					selectedIndex++
+				if inputSymbol != "" {
+					sd.Lock()
+					sd.stocks = append(sd.stocks, stock{symbol: inputSymbol})
+					if selectedIndex < 0 {
+						selectedIndex++
+					}
+					sd.Unlock()
+					inputSymbol = ""
 				}
-				sd.Unlock()
-				inputSymbol = ""
 
 			case termbox.KeyDelete:
 				sd.Lock()
