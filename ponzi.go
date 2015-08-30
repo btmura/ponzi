@@ -45,11 +45,11 @@ var (
 
 	// weekdayColors are background colors for the weekdays. Requires 256 colors.
 	weekdayColors = map[time.Weekday]termbox.Attribute{
-		time.Monday:    termbox.Attribute(18),
-		time.Tuesday:   termbox.Attribute(19),
-		time.Wednesday: termbox.Attribute(20),
-		time.Thursday:  termbox.Attribute(21),
-		time.Friday:    termbox.Attribute(22),
+		time.Monday:    termbox.Attribute(233),
+		time.Tuesday:   termbox.Attribute(234),
+		time.Wednesday: termbox.Attribute(234),
+		time.Thursday:  termbox.Attribute(235),
+		time.Friday:    termbox.Attribute(236),
 	}
 )
 
