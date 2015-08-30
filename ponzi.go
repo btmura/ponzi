@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -102,6 +103,8 @@ func main() {
 		},
 	}
 
+	inputSymbol := ""
+
 	// Launch a go routine to periodically refresh the stock data.
 	go func() {
 		for {
@@ -136,6 +139,8 @@ loop:
 		if !sd.refreshTime.IsZero() {
 			print(0, 0, sd.refreshTime.Format("1/2/06 3:04 PM"))
 		}
+
+		print(20, 0, inputSymbol)
 
 		// Trim down trading dates to what fits the screen.
 		tsColumnCount := (w - symbolColumnWidth - padding) / (tsColumnWidth + padding)
@@ -230,8 +235,23 @@ loop:
 
 		switch ev := termbox.PollEvent(); ev.Type {
 		case termbox.EventKey:
-			if ev.Key == termbox.KeyCtrlC {
+			switch ev.Key {
+			case termbox.KeyCtrlC:
 				break loop
+
+			case termbox.KeyEnter:
+				sd.Lock()
+				sd.stocks = append(sd.stocks, stock{symbol: inputSymbol})
+				sd.Unlock()
+				inputSymbol = ""
+
+			case termbox.KeyBackspace, termbox.KeyBackspace2:
+				if len(inputSymbol) > 0 {
+					inputSymbol = inputSymbol[:len(inputSymbol)-1]
+				}
+
+			default:
+				inputSymbol += strings.ToUpper(string(ev.Ch))
 			}
 		}
 	}
