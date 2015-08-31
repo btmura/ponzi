@@ -7,6 +7,18 @@ import (
 	"path"
 )
 
+// config has the user's saved stocks.
+type config struct {
+	// Stocks are the config's stocks. Capitalized for JSON decoding.
+	Stocks []configStock
+}
+
+// configStock represents a single user's stock.
+type configStock struct {
+	// Symbol is the stock's symbol. Capitalized for JSON decoding.
+	Symbol string
+}
+
 func loadStockData() (*stockData, error) {
 	u, err := user.Current()
 	if err != nil {
@@ -22,22 +34,14 @@ func loadStockData() (*stockData, error) {
 	}
 	defer file.Close()
 
-	type configStock struct {
-		Symbol string
-	}
-
-	type configData struct {
-		Stocks []configStock
-	}
-
-	cd := configData{}
+	cfg := config{}
 	d := json.NewDecoder(file)
-	if err := d.Decode(&cd); err != nil {
+	if err := d.Decode(&cfg); err != nil {
 		return nil, err
 	}
 
 	sd := stockData{}
-	for _, s := range cd.Stocks {
+	for _, s := range cfg.Stocks {
 		sd.stocks = append(sd.stocks, stock{
 			symbol: s.Symbol,
 		})
