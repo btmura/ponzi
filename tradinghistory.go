@@ -327,6 +327,7 @@ func getRealTimeTradingData(symbols []string) ([]realTimeTradingData, error) {
 			if err != nil {
 				return nil, fmt.Errorf("p: %+v percentChange: %v", p, err)
 			}
+			percentChange /= 100.0
 		}
 
 		rds = append(rds, realTimeTradingData{
