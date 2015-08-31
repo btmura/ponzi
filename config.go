@@ -20,12 +20,12 @@ type configStock struct {
 }
 
 func loadConfig() (config, error) {
-	u, err := user.Current()
+	cfgPath, err := getUserConfigPath()
 	if err != nil {
 		return config{}, err
 	}
 
-	file, err := os.Open(path.Join(u.HomeDir, ".ponzi"))
+	file, err := os.Open(cfgPath)
 	if err != nil && !os.IsNotExist(err) {
 		return config{}, err
 	}
@@ -40,4 +40,27 @@ func loadConfig() (config, error) {
 		return config{}, err
 	}
 	return cfg, nil
+}
+
+func saveConfig(cfg config) error {
+	cfgPath, err := getUserConfigPath()
+	if err != nil {
+		return err
+	}
+
+	file, err := os.OpenFile(cfgPath, os.O_WRONLY, 0)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	return json.NewEncoder(file).Encode(&cfg)
+}
+
+func getUserConfigPath() (string, error) {
+	u, err := user.Current()
+	if err != nil {
+		return "", err
+	}
+	return path.Join(u.HomeDir, ".ponzi"), nil
 }

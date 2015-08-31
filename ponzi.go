@@ -253,8 +253,22 @@ loop:
 					if selectedIndex < 0 {
 						selectedIndex++
 					}
+
+					cfg := config{}
+					for _, s := range sd.stocks {
+						cfg.Stocks = append(cfg.Stocks, configStock{
+							Symbol: s.symbol,
+						})
+					}
+					go func() {
+						if err := saveConfig(cfg); err != nil {
+							log.Printf("saveConfig: %v", err)
+						}
+					}()
+
 					sd.Unlock()
 					inputSymbol = ""
+
 				}
 
 			case termbox.KeyDelete:
