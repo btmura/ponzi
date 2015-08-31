@@ -196,11 +196,10 @@ loop:
 				if ts, ok := s.tradingSessionMap[td]; ok {
 					fg = termbox.ColorDefault
 
+					// TODO(btmura): find better way to assign color index
 					abs := math.Abs(ts.percentChange)
 					c := 0
 					switch {
-					case abs > 0.6:
-						c = 5
 					case abs > 0.4:
 						c = 4
 					case abs > 0.2:
