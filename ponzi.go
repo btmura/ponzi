@@ -91,9 +91,16 @@ func main() {
 
 	has256Colors := termbox.SetOutputMode(termbox.Output256) == termbox.Output256
 
-	sd, err := loadStockData()
+	cfg, err := loadConfig()
 	if err != nil {
-		log.Fatalf("loadStockData: %v", err)
+		log.Fatalf("loadConfig: %v", err)
+	}
+
+	sd := &stockData{}
+	for _, cs := range cfg.Stocks {
+		sd.stocks = append(sd.stocks, stock{
+			symbol: cs.Symbol,
+		})
 	}
 
 	inputSymbol := ""

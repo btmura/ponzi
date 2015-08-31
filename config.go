@@ -19,32 +19,25 @@ type configStock struct {
 	Symbol string
 }
 
-func loadStockData() (*stockData, error) {
+func loadConfig() (config, error) {
 	u, err := user.Current()
 	if err != nil {
-		return nil, err
+		return config{}, err
 	}
 
 	file, err := os.Open(path.Join(u.HomeDir, ".ponzi"))
 	if err != nil && !os.IsNotExist(err) {
-		return nil, err
+		return config{}, err
 	}
 	if os.IsNotExist(err) {
-		return &stockData{}, nil
+		return config{}, nil
 	}
 	defer file.Close()
 
 	cfg := config{}
 	d := json.NewDecoder(file)
 	if err := d.Decode(&cfg); err != nil {
-		return nil, err
+		return config{}, err
 	}
-
-	sd := stockData{}
-	for _, s := range cfg.Stocks {
-		sd.stocks = append(sd.stocks, stock{
-			symbol: s.Symbol,
-		})
-	}
-	return &sd, nil
+	return cfg, nil
 }
