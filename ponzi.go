@@ -119,8 +119,10 @@ func main() {
 			// Signal termbox to repaint by queuing an interrupt event.
 			termbox.Interrupt()
 
-			// Sleep a bit till the next refresh.
-			time.Sleep(time.Hour)
+			// Sleep until the next hour to refresh at a predictable time.
+			now := time.Now()
+			nextRefreshTime := now.Add(1 * time.Hour).Truncate(time.Hour)
+			time.Sleep(nextRefreshTime.Sub(now))
 		}
 	}()
 
