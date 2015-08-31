@@ -89,6 +89,11 @@ func main() {
 
 	rand.Seed(time.Now().Unix())
 
+	// Set to InputAlt so that ESC + Key enables the ModAlt flag for EventKey events.
+	// ModAlt does not mean the ALT key as typically expected.
+	termbox.SetInputMode(termbox.InputAlt)
+
+	// Attempt to enable 256 color mode.
 	has256Colors := termbox.SetOutputMode(termbox.Output256) == termbox.Output256
 
 	cfg, err := loadConfig()
@@ -247,16 +252,26 @@ loop:
 				break loop
 
 			case termbox.KeyArrowUp:
+				sd.Lock()
 				if selectedIndex-1 >= 0 {
+					if ev.Mod == termbox.ModAlt {
+						sd.stocks[selectedIndex], sd.stocks[selectedIndex-1] = sd.stocks[selectedIndex-1], sd.stocks[selectedIndex]
+						saveStockData(sd)
+					}
 					selectedIndex--
 				}
+				sd.Unlock()
 
 			case termbox.KeyArrowDown:
-				sd.RLock()
+				sd.Lock()
 				if selectedIndex+1 < len(sd.stocks) {
+					if ev.Mod == termbox.ModAlt {
+						sd.stocks[selectedIndex], sd.stocks[selectedIndex+1] = sd.stocks[selectedIndex+1], sd.stocks[selectedIndex]
+						saveStockData(sd)
+					}
 					selectedIndex++
 				}
-				sd.RUnlock()
+				sd.Unlock()
 
 			case termbox.KeyEnter:
 				if inputSymbol != "" {
