@@ -246,50 +246,10 @@ loop:
 			case termbox.KeyCtrlC:
 				break loop
 
-			case termbox.KeyEnter:
-				if inputSymbol != "" {
-					sd.Lock()
-					sd.stocks = append(sd.stocks, stock{symbol: inputSymbol})
-					if selectedIndex < 0 {
-						selectedIndex++
-					}
-
-					cfg := config{}
-					for _, s := range sd.stocks {
-						cfg.Stocks = append(cfg.Stocks, configStock{
-							Symbol: s.symbol,
-						})
-					}
-					go func() {
-						if err := saveConfig(cfg); err != nil {
-							log.Printf("saveConfig: %v", err)
-						}
-					}()
-
-					sd.Unlock()
-					inputSymbol = ""
-
-				}
-
-			case termbox.KeyDelete:
-				sd.Lock()
-				sd.stocks = append(sd.stocks[:selectedIndex], sd.stocks[selectedIndex+1:]...)
-				if selectedIndex >= len(sd.stocks) {
-					selectedIndex--
-				}
-				sd.Unlock()
-
-			case termbox.KeyBackspace, termbox.KeyBackspace2:
-				if len(inputSymbol) > 0 {
-					inputSymbol = inputSymbol[:len(inputSymbol)-1]
-				}
-
 			case termbox.KeyArrowUp:
-				sd.RLock()
 				if selectedIndex-1 >= 0 {
 					selectedIndex--
 				}
-				sd.RUnlock()
 
 			case termbox.KeyArrowDown:
 				sd.RLock()
@@ -297,6 +257,31 @@ loop:
 					selectedIndex++
 				}
 				sd.RUnlock()
+
+			case termbox.KeyEnter:
+				if inputSymbol != "" {
+					sd.Lock()
+					sd.stocks = append(sd.stocks, stock{symbol: inputSymbol})
+					saveStockData(sd)
+					sd.Unlock()
+					inputSymbol = ""
+				}
+
+			case termbox.KeyDelete:
+				sd.Lock()
+				if len(sd.stocks) > 0 {
+					sd.stocks = append(sd.stocks[:selectedIndex], sd.stocks[selectedIndex+1:]...)
+					saveStockData(sd)
+					if selectedIndex-1 >= 0 {
+						selectedIndex--
+					}
+				}
+				sd.Unlock()
+
+			case termbox.KeyBackspace, termbox.KeyBackspace2:
+				if len(inputSymbol) > 0 {
+					inputSymbol = inputSymbol[:len(inputSymbol)-1]
+				}
 
 			default:
 				inputSymbol += strings.ToUpper(string(ev.Ch))
@@ -427,6 +412,20 @@ func convertTradingHistory(tss []tradingSession) []stockTradingSession {
 	}
 
 	return sts
+}
+
+func saveStockData(sd *stockData) {
+	cfg := config{}
+	for _, s := range sd.stocks {
+		cfg.Stocks = append(cfg.Stocks, configStock{
+			Symbol: s.symbol,
+		})
+	}
+	go func() {
+		if err := saveConfig(cfg); err != nil {
+			log.Printf("saveConfig: %v", err)
+		}
+	}()
 }
 
 type sortableTimes []time.Time
