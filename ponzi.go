@@ -48,9 +48,9 @@ var (
 	weekdayColors = map[time.Weekday]termbox.Attribute{
 		time.Monday:    termbox.Attribute(233),
 		time.Tuesday:   termbox.Attribute(234),
-		time.Wednesday: termbox.Attribute(234),
-		time.Thursday:  termbox.Attribute(235),
-		time.Friday:    termbox.Attribute(236),
+		time.Wednesday: termbox.Attribute(235),
+		time.Thursday:  termbox.Attribute(236),
+		time.Friday:    termbox.Attribute(237),
 	}
 )
 
