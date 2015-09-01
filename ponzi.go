@@ -21,7 +21,7 @@ const (
 	// tsColumnWidth is the width of the middle columns that have trading session data.
 	tsColumnWidth = 8
 
-	// padding is the amount of padding around all edges and in between cells.
+	// padding is the amount of horizontal padding around columns.
 	padding = 1
 )
 
