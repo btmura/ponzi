@@ -252,25 +252,34 @@ loop:
 			case termbox.KeyCtrlC:
 				break loop
 
+			// TODO(btmura): remove code duplication with KeyArrowDown.
 			case termbox.KeyArrowUp:
 				sd.Lock()
-				if selectedIndex-1 >= 0 {
+				if len(sd.stocks) > 0 {
+					swapIndex := selectedIndex - 1
+					if swapIndex < 0 {
+						swapIndex = len(sd.stocks) - 1
+					}
 					if ev.Mod == termbox.ModAlt {
-						sd.stocks[selectedIndex], sd.stocks[selectedIndex-1] = sd.stocks[selectedIndex-1], sd.stocks[selectedIndex]
+						sd.stocks[selectedIndex], sd.stocks[swapIndex] = sd.stocks[swapIndex], sd.stocks[selectedIndex]
 						saveStockData(sd)
 					}
-					selectedIndex--
+					selectedIndex = swapIndex
 				}
 				sd.Unlock()
 
 			case termbox.KeyArrowDown:
 				sd.Lock()
-				if selectedIndex+1 < len(sd.stocks) {
+				if len(sd.stocks) > 0 {
+					swapIndex := selectedIndex + 1
+					if swapIndex == len(sd.stocks) {
+						swapIndex = 0
+					}
 					if ev.Mod == termbox.ModAlt {
-						sd.stocks[selectedIndex], sd.stocks[selectedIndex+1] = sd.stocks[selectedIndex+1], sd.stocks[selectedIndex]
+						sd.stocks[selectedIndex], sd.stocks[swapIndex] = sd.stocks[swapIndex], sd.stocks[selectedIndex]
 						saveStockData(sd)
 					}
-					selectedIndex++
+					selectedIndex = swapIndex
 				}
 				sd.Unlock()
 
