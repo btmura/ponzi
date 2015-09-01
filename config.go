@@ -62,7 +62,7 @@ func saveConfig(cfg config) error {
 	configMutex.Lock()
 	defer configMutex.Unlock()
 
-	file, err := os.OpenFile(cfgPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0)
+	file, err := os.OpenFile(cfgPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0660)
 	if err != nil {
 		return err
 	}
