@@ -18,10 +18,13 @@ const (
 	// symbolColumnWidth is the width of the leftmost column with the symbols.
 	symbolColumnWidth = 5
 
-	// tsColumnWidth is the width of the middle columns that have trading session data.
+	// tsColumnWidth is the width of the columns that have trading session data.
 	tsColumnWidth = 8
 
-	// padding is the amount of horizontal padding around columns.
+	// tsColumnHeight is the height of the rows that have trading session data.
+	tsColumnHeight = 4
+
+	// padding is the amount of padding in between cells.
 	padding = 1
 
 	// colorCount is the number of color steps a price change can have.
@@ -148,7 +151,7 @@ loop:
 		}
 
 		fg, bg := termbox.ColorDefault, termbox.ColorDefault
-		w, _ := termbox.Size()
+		w, h := termbox.Size()
 
 		print := func(x, y int, format string, a ...interface{}) {
 			for _, rune := range fmt.Sprintf(format, a...) {
@@ -172,6 +175,7 @@ loop:
 		}
 		tradingDates := sd.tradingDates[len(sd.tradingDates)-tsColumnCount:]
 
+		// Print out the dates at the top.
 		x := symbolColumnWidth + padding*2
 		for _, td := range tradingDates {
 			if x+tsColumnWidth+padding > w {
@@ -190,15 +194,19 @@ loop:
 			x = x + tsColumnWidth + padding
 		}
 
+		// Print out the symbols and the trading session cells.
 		for i, s := range sd.stocks {
-			x, y := padding, 5+i*5
-			bg = termbox.ColorDefault
+			x, y := padding, 5+i*(tsColumnHeight+padding)
+			if y+tsColumnHeight+padding > h {
+				break
+			}
 
 			if i == selectedIndex {
 				fg = termbox.ColorYellow
 			} else {
 				fg = termbox.ColorDefault
 			}
+			bg = termbox.ColorDefault
 
 			print(x, y, "%[1]*s", symbolColumnWidth, s.symbol)
 			x = x + symbolColumnWidth + padding
