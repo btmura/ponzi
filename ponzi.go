@@ -128,6 +128,7 @@ func main() {
 
 	inputSymbol := ""
 	selectedIndex := 0
+	symbolOffset := 0
 
 	// Launch a go routine to periodically refresh the stock data.
 	go func() {
@@ -194,14 +195,30 @@ loop:
 			x = x + tsColumnWidth + padding
 		}
 
+		// startY is the row after the refresh time(1) + padding(1) + date(2) + padding(1)
+		const startY = 5
+
+		// getY gets the row's top y.
+		getY := func(row int) int {
+			return startY + (tsColumnHeight+padding)*row
+		}
+
+		// Adjust the offset so that the selectedIndex is visible.
+		for getY(selectedIndex-symbolOffset) < startY {
+			symbolOffset--
+		}
+		for getY(selectedIndex-symbolOffset+1) > h {
+			symbolOffset++
+		}
+
 		// Print out the symbols and the trading session cells.
-		for i, s := range sd.stocks {
-			x, y := padding, 5+i*(tsColumnHeight+padding)
+		for i, s := range sd.stocks[symbolOffset:] {
+			x, y := padding, getY(i)
 			if y+tsColumnHeight+padding > h {
 				break
 			}
 
-			if i == selectedIndex {
+			if i+symbolOffset == selectedIndex {
 				fg = termbox.ColorYellow
 			} else {
 				fg = termbox.ColorDefault
