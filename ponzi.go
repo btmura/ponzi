@@ -64,6 +64,9 @@ var (
 		time.Thursday:  termbox.Attribute(236),
 		time.Friday:    termbox.Attribute(237),
 	}
+
+	// placeholderColor is the background color for a cell with no data.
+	placeholderColor = termbox.Attribute(234)
 )
 
 type stockData struct {
@@ -241,6 +244,11 @@ loop:
 					// Print change and % change in green or red.
 					print(x, y+1, "%+[1]*.2f", tsColumnWidth, ts.change)
 					print(x, y+2, "%+[1]*.2f%%", tsColumnWidth-1, ts.percentChange*100.0)
+				} else {
+					bg = placeholderColor
+					for i := 0; i < 4; i++ {
+						print(x, y+i, strings.Repeat(" ", tsColumnWidth))
+					}
 				}
 				x = x + tsColumnWidth + padding
 			}
