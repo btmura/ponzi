@@ -375,7 +375,7 @@ func refreshStockData(sd *stockData) {
 	tsm := map[string]map[time.Time]stockTradingSession{}
 	for symbol, ch := range scm {
 		// TODO(btmura): detect error value from channel
-		for _, ts := range convertTradingHistory(<-ch) {
+		for _, ts := range convertTradingSessions(<-ch) {
 			if _, ok := tsm[symbol]; !ok {
 				tsm[symbol] = map[time.Time]stockTradingSession{}
 			}
@@ -424,7 +424,7 @@ func refreshStockData(sd *stockData) {
 	sd.Unlock()
 }
 
-func convertTradingHistory(tss []tradingSession) []stockTradingSession {
+func convertTradingSessions(tss []tradingSession) []stockTradingSession {
 	var sts []stockTradingSession
 	for _, ts := range tss {
 		sts = append(sts, stockTradingSession{
