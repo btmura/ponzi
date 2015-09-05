@@ -23,11 +23,14 @@ const (
 
 	// padding is the amount of horizontal padding around columns.
 	padding = 1
+
+	// colorCount is the number of color steps a price change can have.
+	colorCount = 5
 )
 
 var (
 	// positiveColors are background colors for positive price changes. Requires 256 colors.
-	positiveColors = [5]termbox.Attribute{
+	positiveColors = [colorCount]termbox.Attribute{
 		termbox.Attribute(23),
 		termbox.Attribute(29),
 		termbox.Attribute(35),
@@ -36,12 +39,21 @@ var (
 	}
 
 	// negativeColors are background colors for negative price changes. Requires 256 colors.
-	negativeColors = [5]termbox.Attribute{
+	negativeColors = [colorCount]termbox.Attribute{
 		termbox.Attribute(53),
 		termbox.Attribute(89),
 		termbox.Attribute(125),
 		termbox.Attribute(161),
 		termbox.Attribute(197),
+	}
+
+	// colorLevels is a slice of percentages at which colors change.
+	colorLevels = [colorCount]float64{
+		0.0,
+		0.05,
+		0.1,
+		0.25,
+		0.5,
 	}
 
 	// weekdayColors are background colors for the weekdays. Requires 256 colors.
@@ -196,18 +208,12 @@ loop:
 				if ts, ok := s.tradingSessionMap[td]; ok {
 					fg = termbox.ColorDefault
 
-					// TODO(btmura): find better way to assign color index
-					abs := math.Abs(ts.percentChange)
 					c := 0
-					switch {
-					case abs > 0.4:
-						c = 4
-					case abs > 0.2:
-						c = 3
-					case abs > 0.1:
-						c = 2
-					case abs > 0.05:
-						c = 1
+					absChange := math.Abs(ts.percentChange)
+					for ; c < len(colorLevels)-1; c++ {
+						if absChange < colorLevels[c+1] {
+							break
+						}
 					}
 
 					switch {
