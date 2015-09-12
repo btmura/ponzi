@@ -336,6 +336,9 @@ loop:
 
 					saveStockData(sd)
 					sd.Unlock()
+
+					// Get initial data for the new stock.
+					refreshStockData(sd, inputSymbol)
 					inputSymbol = ""
 				}
 
@@ -362,7 +365,7 @@ loop:
 	}
 }
 
-func refreshStockData(sd *stockData) {
+func refreshStockData(sd *stockData, specificSymbols ...string) {
 	end := time.Now()
 	start := end.Add(-time.Hour * 24 * 30)
 
@@ -372,28 +375,39 @@ func refreshStockData(sd *stockData) {
 	// Collect the symbols for a batch call to get the real time trading data.
 	var symbols []string
 
-	// Acquire a read lock to get the symbols and launch a go routine per symbol.
-	sd.RLock()
-	for _, s := range sd.stocks {
+	// queueRequest launches a go routine to get trading data for a symbol.
+	queueRequest := func(newSymbol string) {
 		// Avoid making redundant requests.
-		if _, ok := scm[s.symbol]; ok {
-			continue
+		if _, ok := scm[newSymbol]; ok {
+			return
 		}
 
-		symbols = append(symbols, s.symbol)
+		symbols = append(symbols, newSymbol)
 
 		// Launch a go routine that will stuff the tradingSessions into the channel.
 		ch := make(chan []tradingSession)
-		scm[s.symbol] = ch
+		scm[newSymbol] = ch
 		go func(symbol string, ch chan []tradingSession) {
 			tss, err := getTradingSessions(symbol, start, end)
 			if err != nil {
 				log.Printf("getTradingSessions(%s): %v", symbol, err)
 			}
 			ch <- tss
-		}(s.symbol, ch)
+		}(newSymbol, ch)
 	}
-	sd.RUnlock()
+
+	// Acquire a read lock to get the symbols and launch a go routine per symbol.
+	if len(specificSymbols) > 0 {
+		for _, symbol := range specificSymbols {
+			queueRequest(symbol)
+		}
+	} else {
+		sd.RLock()
+		for _, s := range sd.stocks {
+			queueRequest(s.symbol)
+		}
+		sd.RUnlock()
+	}
 
 	// Batch get the real time trading data using the aggregated symbols.
 	rc := make(chan []realTimeTradingData)
@@ -408,9 +422,24 @@ func refreshStockData(sd *stockData) {
 		close(rc)
 	}()
 
-	// Record the unique trading dates for all data.
+	// dates is the unique trading dates of all the data.
 	var dates sortableTimes
+
+	// tdm and addDate should be used to update and keep the date set unique.
 	tdm := map[time.Time]bool{}
+	addDate := func(date time.Time) {
+		if !tdm[date] {
+			tdm[date] = true
+			dates = append(dates, date)
+		}
+	}
+
+	// Add the previous dates that we still have data for before waiting for responses.
+	sd.RLock()
+	for _, prevDate := range sd.tradingDates {
+		addDate(prevDate)
+	}
+	sd.RUnlock()
 
 	// Extract the tradingHistory from each channel into a new map.
 	tsm := map[string]map[time.Time]stockTradingSession{}
@@ -421,10 +450,7 @@ func refreshStockData(sd *stockData) {
 				tsm[symbol] = map[time.Time]stockTradingSession{}
 			}
 			tsm[symbol][ts.date] = ts
-			if !tdm[ts.date] {
-				tdm[ts.date] = true
-				dates = append(dates, ts.date)
-			}
+			addDate(ts.date)
 		}
 	}
 
@@ -445,10 +471,7 @@ func refreshStockData(sd *stockData) {
 				tsm[rd.symbol] = map[time.Time]stockTradingSession{}
 			}
 			tsm[rd.symbol][ts.date] = ts
-			if !tdm[ts.date] {
-				tdm[ts.date] = true
-				dates = append(dates, ts.date)
-			}
+			addDate(ts.date)
 		}
 	}
 
@@ -460,7 +483,9 @@ func refreshStockData(sd *stockData) {
 	sd.refreshTime = time.Now()
 	sd.tradingDates = dates
 	for i, s := range sd.stocks {
-		sd.stocks[i].tradingSessionMap = tsm[s.symbol]
+		if m, ok := tsm[s.symbol]; ok {
+			sd.stocks[i].tradingSessionMap = m
+		}
 	}
 	sd.Unlock()
 }
