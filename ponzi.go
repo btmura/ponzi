@@ -328,7 +328,12 @@ loop:
 			case termbox.KeyEnter:
 				if inputSymbol != "" {
 					sd.Lock()
-					sd.stocks = append(sd.stocks, stock{symbol: inputSymbol})
+
+					// Expand the slice, shift from selected index, and insert into the middle.
+					sd.stocks = append(sd.stocks, stock{})
+					copy(sd.stocks[selectedIndex+1:], sd.stocks[selectedIndex:])
+					sd.stocks[selectedIndex] = stock{symbol: inputSymbol}
+
 					saveStockData(sd)
 					sd.Unlock()
 					inputSymbol = ""
