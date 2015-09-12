@@ -8,7 +8,6 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"math/rand"
 	"net/http"
 	"net/url"
 	"sort"
@@ -36,14 +35,14 @@ type realTimeTradingData struct {
 }
 
 func getTradingSessions(symbol string, startDate, endDate time.Time) ([]tradingSession, error) {
-	tradingFuncs := []func(symbol string, startDate, endDate time.Time) ([]tradingSession, error){
-		getTradingSessionsFromGoogle,
-		getTradingSessionsFromYahoo,
+	tradingFuncs := map[string]func(symbol string, startDate, endDate time.Time) ([]tradingSession, error){
+		"google": getTradingSessionsFromGoogle,
+		"yahoo":  getTradingSessionsFromYahoo,
 	}
-	for _, n := range rand.Perm(len(tradingFuncs)) {
-		th, err := tradingFuncs[n](symbol, startDate, endDate)
+	for id, tf := range tradingFuncs {
+		th, err := tf(symbol, startDate, endDate)
 		if err != nil {
-			log.Printf("tradingFunc %d: %v", n, err)
+			log.Printf("tradingFunc %q: %v", id, err)
 			continue
 		}
 		return th, nil
