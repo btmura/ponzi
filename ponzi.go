@@ -291,6 +291,9 @@ loop:
 			case termbox.KeyCtrlC, termbox.KeyCtrlD:
 				break loop
 
+			case termbox.KeyCtrlR:
+				refreshStockData(sd)
+
 			// TODO(btmura): remove code duplication with KeyArrowDown.
 			case termbox.KeyArrowUp:
 				sd.Lock()
