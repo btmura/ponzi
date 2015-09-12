@@ -288,7 +288,7 @@ loop:
 		switch ev := termbox.PollEvent(); ev.Type {
 		case termbox.EventKey:
 			switch ev.Key {
-			case termbox.KeyCtrlC:
+			case termbox.KeyCtrlC, termbox.KeyCtrlD:
 				break loop
 
 			// TODO(btmura): remove code duplication with KeyArrowDown.
