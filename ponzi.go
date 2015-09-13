@@ -100,6 +100,14 @@ type stockTradingSession struct {
 }
 
 func main() {
+	var err error
+
+	logFile, err := initLogger()
+	if err != nil {
+		log.Fatalf("initLogger: %v", err)
+	}
+	defer logFile.Close()
+
 	if err := termbox.Init(); err != nil {
 		log.Fatalf("termbox.Init: %v", err)
 	}

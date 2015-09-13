@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"io"
+	"log"
 	"os"
 	"os/user"
 	"path"
@@ -89,4 +90,30 @@ func getUserConfigDir() (string, error) {
 		return "", err
 	}
 	return p, nil
+}
+
+func initLogger() (*os.File, error) {
+	configMutex.Lock()
+	defer configMutex.Unlock()
+
+	logPath, err := getUserLogPath()
+	if err != nil {
+		return nil, err
+	}
+
+	file, err := os.OpenFile(logPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0660)
+	if err != nil {
+		return nil, err
+	}
+
+	log.SetOutput(file)
+	return file, nil
+}
+
+func getUserLogPath() (string, error) {
+	dirPath, err := getUserConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return path.Join(dirPath, "log.txt"), nil
 }

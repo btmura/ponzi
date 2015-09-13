@@ -66,7 +66,7 @@ func getTradingSessionsFromGoogle(symbol string, startDate, endDate time.Time) (
 		return nil, err
 	}
 	u.RawQuery = v.Encode()
-	log.Printf("url: %s", u)
+	log.Printf("GET %s", u)
 
 	resp, err := http.Get(u.String())
 	if err != nil {
@@ -168,7 +168,7 @@ func getTradingSessionsFromYahoo(symbol string, startDate, endDate time.Time) ([
 		return nil, err
 	}
 	u.RawQuery = v.Encode()
-	log.Printf("url: %s", u)
+	log.Printf("GET %s", u)
 
 	resp, err := http.Get(u.String())
 	if err != nil {
@@ -265,7 +265,7 @@ func getRealTimeTradingData(symbols []string) ([]realTimeTradingData, error) {
 		return nil, err
 	}
 	u.RawQuery = v.Encode()
-	log.Printf("url: %s", u)
+	log.Printf("GET %s", u)
 
 	resp, err := http.Get(u.String())
 	if err != nil {
