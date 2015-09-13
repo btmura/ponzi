@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func TestIsMarketHours(t *testing.T) {
+func TestIsMarketOpen(t *testing.T) {
 	parseTime := func(value string) time.Time {
 		t, err := time.ParseInLocation("1/2/06 3:04 PM", value, newYorkLoc)
 		if err != nil {
@@ -42,8 +42,8 @@ func TestIsMarketHours(t *testing.T) {
 			now:  parseTime("9/13/15 10:00 AM"),
 		},
 	} {
-		if got := isMarketHours(tt.now); got != tt.want {
-			t.Errorf("[%s] isMarketHours(%v) = %t, want %t", tt.desc, tt.now, got, tt.want)
+		if got := isMarketOpen(tt.now); got != tt.want {
+			t.Errorf("[%s] isMarketOpen(%v) = %t, want %t", tt.desc, tt.now, got, tt.want)
 		}
 	}
 }

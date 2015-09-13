@@ -8,8 +8,8 @@ import (
 // newYorkLoc is the New York timezone used to determine market hours.
 var newYorkLoc *time.Location = mustLoadLocation("America/New_York")
 
-// isMarketHours returns whether the market is currently open.
-func isMarketHours(now time.Time) bool {
+// isMarketOpen returns whether the market is open.
+func isMarketOpen(now time.Time) bool {
 	now = now.In(newYorkLoc)
 	if now.Weekday() == time.Saturday || now.Weekday() == time.Sunday {
 		return false
