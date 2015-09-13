@@ -164,7 +164,7 @@ func main() {
 				refresh()
 
 			case <-time.After(5 * time.Minute):
-				if isMarketHours() {
+				if isMarketHours(time.Now()) {
 					refreshStockData(sd, "", true)
 					termbox.Interrupt()
 				}
