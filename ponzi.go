@@ -70,9 +70,6 @@ var (
 
 	// placeholderColor is the background color for a cell with no data.
 	placeholderColor = termbox.Attribute(234)
-
-	// newYorkLoc is the New York timezone used to determine market hours.
-	newYorkLoc *time.Location = mustLoadLocation("America/New_York")
 )
 
 type stockData struct {

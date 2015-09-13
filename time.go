@@ -5,8 +5,17 @@ import (
 	"time"
 )
 
+// newYorkLoc is the New York timezone used to determine market hours.
+var newYorkLoc *time.Location = mustLoadLocation("America/New_York")
+
+// getNow returns time.Now() but can be mocked in tests.
+var getNow = func() time.Time {
+	return time.Now()
+}
+
+// isMarketHours returns whether the market is currently open.
 func isMarketHours() bool {
-	now := time.Now().In(newYorkLoc)
+	now := getNow().In(newYorkLoc)
 	if now.Weekday() == time.Saturday || now.Weekday() == time.Sunday {
 		return false
 	}
@@ -24,6 +33,7 @@ func isMarketHours() bool {
 	return true
 }
 
+// mustLoadLocation loads the requested tz location or panics.
 func mustLoadLocation(name string) *time.Location {
 	loc, err := time.LoadLocation("America/New_York")
 	if err != nil {
