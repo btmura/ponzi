@@ -26,13 +26,13 @@ var configMutex sync.RWMutex
 
 // loadConfig loads the user's config from disk.
 func loadConfig() (config, error) {
+	configMutex.RLock()
+	defer configMutex.RUnlock()
+
 	cfgPath, err := getUserConfigPath()
 	if err != nil {
 		return config{}, err
 	}
-
-	configMutex.RLock()
-	defer configMutex.RUnlock()
 
 	file, err := os.Open(cfgPath)
 	if err != nil && !os.IsNotExist(err) {
@@ -54,13 +54,13 @@ func loadConfig() (config, error) {
 
 // saveConfig saves the user's config to disk.
 func saveConfig(cfg config) error {
+	configMutex.Lock()
+	defer configMutex.Unlock()
+
 	cfgPath, err := getUserConfigPath()
 	if err != nil {
 		return err
 	}
-
-	configMutex.Lock()
-	defer configMutex.Unlock()
 
 	file, err := os.OpenFile(cfgPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0660)
 	if err != nil {
@@ -72,9 +72,21 @@ func saveConfig(cfg config) error {
 }
 
 func getUserConfigPath() (string, error) {
+	dirPath, err := getUserConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return path.Join(dirPath, "config.json"), nil
+}
+
+func getUserConfigDir() (string, error) {
 	u, err := user.Current()
 	if err != nil {
 		return "", err
 	}
-	return path.Join(u.HomeDir, ".ponzi"), nil
+	p := path.Join(u.HomeDir, ".config", "ponzi")
+	if err := os.MkdirAll(p, 0755); err != nil {
+		return "", err
+	}
+	return p, nil
 }
