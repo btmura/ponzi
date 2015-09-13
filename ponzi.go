@@ -70,6 +70,9 @@ var (
 
 	// placeholderColor is the background color for a cell with no data.
 	placeholderColor = termbox.Attribute(234)
+
+	// newYorkLoc is the New York timezone used to determine market hours.
+	newYorkLoc *time.Location = mustLoadLocation("America/New_York")
 )
 
 type stockData struct {
@@ -145,7 +148,7 @@ func main() {
 
 		// refresh refreshes the stock data, repaints the screen, and calculates the next duration.
 		refresh := func() {
-			refreshStockData(sd)
+			refreshStockData(sd, "", false)
 
 			// Signal termbox to repaint by queuing an interrupt event.
 			termbox.Interrupt()
@@ -162,6 +165,12 @@ func main() {
 			select {
 			case <-time.After(refreshDuration):
 				refresh()
+
+			case <-time.After(5 * time.Minute):
+				if isMarketHours() {
+					refreshStockData(sd, "", true)
+					termbox.Interrupt()
+				}
 			}
 		}
 	}()
@@ -313,7 +322,7 @@ loop:
 				break loop
 
 			case termbox.KeyCtrlR:
-				refreshStockData(sd)
+				refreshStockData(sd, "", false)
 
 			// TODO(btmura): remove code duplication with KeyArrowDown.
 			case termbox.KeyArrowUp:
@@ -359,7 +368,7 @@ loop:
 					sd.Unlock()
 
 					// Get initial data for the new stock.
-					refreshStockData(sd, inputSymbol)
+					refreshStockData(sd, inputSymbol, false)
 					inputSymbol = ""
 				}
 
@@ -386,7 +395,7 @@ loop:
 	}
 }
 
-func refreshStockData(sd *stockData, specificSymbols ...string) {
+func refreshStockData(sd *stockData, oneSymbol string, onlyRealTimeData bool) {
 	end := time.Now()
 	start := end.Add(-time.Hour * 24 * 30)
 
@@ -408,6 +417,11 @@ func refreshStockData(sd *stockData, specificSymbols ...string) {
 		// Launch a go routine that will stuff the tradingSessions into the channel.
 		ch := make(chan []tradingSession)
 		scm[newSymbol] = ch
+		if onlyRealTimeData {
+			close(ch)
+			return
+		}
+
 		go func(symbol string, ch chan []tradingSession) {
 			tss, err := getTradingSessions(symbol, start, end)
 			if err != nil {
@@ -418,10 +432,8 @@ func refreshStockData(sd *stockData, specificSymbols ...string) {
 	}
 
 	// Acquire a read lock to get the symbols and launch a go routine per symbol.
-	if len(specificSymbols) > 0 {
-		for _, symbol := range specificSymbols {
-			queueRequest(symbol)
-		}
+	if oneSymbol != "" {
+		queueRequest(oneSymbol)
 	} else {
 		sd.RLock()
 		for _, s := range sd.stocks {
@@ -504,8 +516,11 @@ func refreshStockData(sd *stockData, specificSymbols ...string) {
 	sd.refreshTime = time.Now()
 	sd.tradingDates = dates
 	for i, s := range sd.stocks {
-		if m, ok := tsm[s.symbol]; ok {
-			sd.stocks[i].tradingSessionMap = m
+		if sd.stocks[i].tradingSessionMap == nil {
+			sd.stocks[i].tradingSessionMap = map[time.Time]stockTradingSession{}
+		}
+		for date, ts := range tsm[s.symbol] {
+			sd.stocks[i].tradingSessionMap[date] = ts
 		}
 	}
 	sd.Unlock()
@@ -544,6 +559,33 @@ func saveStockData(sd *stockData) {
 			log.Printf("saveConfig: %v", err)
 		}
 	}()
+}
+
+func isMarketHours() bool {
+	now := time.Now().In(newYorkLoc)
+	if now.Weekday() == time.Saturday || now.Weekday() == time.Sunday {
+		return false
+	}
+
+	opening := time.Date(now.Year(), now.Month(), now.Day(), 9, 30, 0, 0, newYorkLoc)
+	if now.Before(opening) {
+		return false
+	}
+
+	closing := time.Date(now.Year(), now.Month(), now.Day(), 12+4, 0, 0, 0, newYorkLoc)
+	if now.After(closing) {
+		return false
+	}
+
+	return true
+}
+
+func mustLoadLocation(name string) *time.Location {
+	loc, err := time.LoadLocation("America/New_York")
+	if err != nil {
+		panic(fmt.Sprintf("time.LoadLocation: %v", err))
+	}
+	return loc
 }
 
 type sortableTimes []time.Time
