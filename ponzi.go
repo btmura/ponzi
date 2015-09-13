@@ -132,16 +132,37 @@ func main() {
 
 	// Launch a go routine to periodically refresh the stock data.
 	go func() {
-		for {
+		// refreshDuration is the duration until the next refresh.
+		var refreshDuration time.Duration
+
+		// getNextRefreshDuration returns a duration from now till the next refresh.
+		getNextRefreshDuration := func() time.Duration {
+			// Refresh at the top of the hour to be predictable.
+			now := time.Now()
+			nextRefreshTime := now.Add(1 * time.Hour).Truncate(time.Hour)
+			return nextRefreshTime.Sub(now)
+		}
+
+		// refresh refreshes the stock data, repaints the screen, and calculates the next duration.
+		refresh := func() {
 			refreshStockData(sd)
 
 			// Signal termbox to repaint by queuing an interrupt event.
 			termbox.Interrupt()
 
-			// Sleep until the next hour to refresh at a predictable time.
-			now := time.Now()
-			nextRefreshTime := now.Add(1 * time.Hour).Truncate(time.Hour)
-			time.Sleep(nextRefreshTime.Sub(now))
+			// Calculate the next refresh duration at the top of the hour.
+			refreshDuration = getNextRefreshDuration()
+		}
+
+		// Do an initial refresh of the data.
+		refresh()
+
+		// Loop forever and perodically refresh.
+		for {
+			select {
+			case <-time.After(refreshDuration):
+				refresh()
+			}
 		}
 	}()
 
