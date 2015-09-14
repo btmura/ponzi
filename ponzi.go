@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"math"
-	"math/rand"
 	"sort"
 	"strconv"
 	"strings"
@@ -112,8 +111,6 @@ func main() {
 		log.Fatalf("termbox.Init: %v", err)
 	}
 	defer termbox.Close()
-
-	rand.Seed(time.Now().Unix())
 
 	// Set to InputAlt so that ESC + Key enables the ModAlt flag for EventKey events.
 	// ModAlt does not mean the ALT key as typically expected.
