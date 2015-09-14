@@ -153,7 +153,7 @@ func main() {
 
 		// refresh refreshes the stock data, repaints the screen, and calculates the next duration.
 		refresh := func() {
-			refreshStockData(sd, "", false)
+			refreshStockData(sd, "")
 
 			// Signal termbox to repaint by queuing an interrupt event.
 			termbox.Interrupt()
@@ -170,12 +170,6 @@ func main() {
 			select {
 			case <-time.After(refreshDuration):
 				refresh()
-
-			case <-time.After(5 * time.Minute):
-				if isMarketOpen(time.Now()) {
-					refreshStockData(sd, "", true)
-					termbox.Interrupt()
-				}
 			}
 		}
 	}()
@@ -327,7 +321,7 @@ loop:
 				break loop
 
 			case termbox.KeyCtrlR:
-				refreshStockData(sd, "", false)
+				refreshStockData(sd, "")
 
 			// TODO(btmura): remove code duplication with KeyArrowDown.
 			case termbox.KeyArrowUp:
@@ -373,7 +367,7 @@ loop:
 					sd.Unlock()
 
 					// Get initial data for the new stock.
-					refreshStockData(sd, inputSymbol, false)
+					refreshStockData(sd, inputSymbol)
 					inputSymbol = ""
 				}
 
@@ -400,7 +394,7 @@ loop:
 	}
 }
 
-func refreshStockData(sd *stockData, oneSymbol string, onlyRealTimeData bool) {
+func refreshStockData(sd *stockData, oneSymbol string) {
 	end := time.Now()
 	start := end.Add(-time.Hour * 24 * 30)
 
@@ -422,11 +416,6 @@ func refreshStockData(sd *stockData, oneSymbol string, onlyRealTimeData bool) {
 		// Launch a go routine that will stuff the tradingSessions into the channel.
 		ch := make(chan []tradingSession)
 		scm[newSymbol] = ch
-		if onlyRealTimeData {
-			close(ch)
-			return
-		}
-
 		go func(symbol string, ch chan []tradingSession) {
 			tss, err := getTradingSessions(symbol, start, end)
 			if err != nil {
@@ -446,19 +435,6 @@ func refreshStockData(sd *stockData, oneSymbol string, onlyRealTimeData bool) {
 		}
 		sd.RUnlock()
 	}
-
-	// Batch get the real time trading data using the aggregated symbols.
-	rc := make(chan []realTimeTradingData)
-	go func() {
-		if len(symbols) > 0 {
-			rds, err := getRealTimeTradingData(symbols)
-			if err != nil {
-				log.Printf("getRealTimeTradingData(%v): %v", symbols, err)
-			}
-			rc <- rds
-		}
-		close(rc)
-	}()
 
 	// dates is the unique trading dates of all the data.
 	var dates sortableTimes
@@ -488,27 +464,6 @@ func refreshStockData(sd *stockData, oneSymbol string, onlyRealTimeData bool) {
 				tsm[symbol] = map[time.Time]stockTradingSession{}
 			}
 			tsm[symbol][ts.date] = ts
-			addDate(ts.date)
-		}
-	}
-
-	// Extract the realTimeTradingData from the channel.
-	for _, rd := range <-rc {
-
-		// TODO(btmura): detect error value from channel
-
-		ts := stockTradingSession{
-			date:          time.Date(rd.timestamp.Year(), rd.timestamp.Month(), rd.timestamp.Day(), 0, 0, 0, 0, rd.timestamp.Location()),
-			close:         rd.price,
-			change:        rd.change,
-			percentChange: rd.percentChange,
-		}
-
-		if _, ok := tsm[rd.symbol][ts.date]; !ok {
-			if _, ok := tsm[rd.symbol]; !ok {
-				tsm[rd.symbol] = map[time.Time]stockTradingSession{}
-			}
-			tsm[rd.symbol][ts.date] = ts
 			addDate(ts.date)
 		}
 	}
