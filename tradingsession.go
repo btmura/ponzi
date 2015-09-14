@@ -12,6 +12,15 @@ import (
 	"time"
 )
 
+// tradingSessionSource is a source of trading sessions.
+type tradingSessionSource string
+
+// List of possible dataSources.
+const (
+	google tradingSessionSource = "google"
+	yahoo  tradingSessionSource = "yahoo"
+)
+
 // tradingSession contains stats from a single trading session.
 type tradingSession struct {
 	date   time.Time
@@ -23,14 +32,14 @@ type tradingSession struct {
 }
 
 func getTradingSessions(symbol string, startDate, endDate time.Time) ([]tradingSession, error) {
-	tradingFuncs := map[string]func(symbol string, startDate, endDate time.Time) ([]tradingSession, error){
-		"google": getTradingSessionsFromGoogle,
-		"yahoo":  getTradingSessionsFromYahoo,
+	tradingFuncs := map[tradingSessionSource]func(symbol string, startDate, endDate time.Time) ([]tradingSession, error){
+		google: getTradingSessionsFromGoogle,
+		yahoo:  getTradingSessionsFromYahoo,
 	}
-	for id, tf := range tradingFuncs {
+	for ds, tf := range tradingFuncs {
 		th, err := tf(symbol, startDate, endDate)
 		if err != nil {
-			log.Printf("tradingFunc %q: %v", id, err)
+			log.Printf("tradingFunc %s: %v", ds, err)
 			continue
 		}
 		return th, nil
