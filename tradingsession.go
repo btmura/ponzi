@@ -27,6 +27,12 @@ const (
 	random                      = "random"
 )
 
+// Random sources to use when the random source is used.
+var randomSources = []tradingSessionSource{
+	google,
+	yahoo,
+}
+
 // tradingSessionFunc is a function that returns tradingSessions.
 type tradingSessionFunc func(symbol string, startDate, endDate time.Time) ([]tradingSession, error)
 
@@ -54,10 +60,6 @@ type tradingSession struct {
 }
 
 func getTradingSessionsFromRandom(symbol string, startDate, endDate time.Time) ([]tradingSession, error) {
-	randomSources := []tradingSessionSource{
-		google,
-		yahoo,
-	}
 	for _, v := range rand.Perm(len(randomSources)) {
 		s := randomSources[v]
 		getTradingSessions, err := getTradingSessionFunc(s)
