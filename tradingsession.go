@@ -124,7 +124,7 @@ func getTradingSessionsFromGoogle(symbol string, startDate, endDate time.Time) (
 			}
 
 			parseRecordFloat := func(i int) (float64, error) {
-				return strconv.ParseFloat(record[i], 64)
+				return parseFloat(record[i])
 			}
 
 			parseRecordInt := func(i int) (int64, error) {
@@ -226,7 +226,7 @@ func getTradingSessionsFromYahoo(symbol string, startDate, endDate time.Time) ([
 			}
 
 			parseRecordFloat := func(i int) (float64, error) {
-				return strconv.ParseFloat(record[i], 64)
+				return parseFloat(record[i])
 			}
 
 			parseRecordInt := func(i int) (int64, error) {
@@ -342,14 +342,14 @@ func getLiveTradingSessions(symbols []string) ([]liveTradingSession, error) {
 			return nil, fmt.Errorf("p: %+v timestamp: %v", p, err)
 		}
 
-		price, err := strconv.ParseFloat(p.L, 64)
+		price, err := parseFloat(p.L)
 		if err != nil {
 			return nil, fmt.Errorf("p: %+v price: %v", p, err)
 		}
 
 		var change float64
 		if p.C != "" { // C is empty after market close.
-			change, err = strconv.ParseFloat(p.C, 64)
+			change, err = parseFloat(p.C)
 			if err != nil {
 				return nil, fmt.Errorf("p: %+v change: %v", p, err)
 			}
@@ -357,7 +357,7 @@ func getLiveTradingSessions(symbols []string) ([]liveTradingSession, error) {
 
 		var percentChange float64
 		if p.Cp != "" { // Cp is empty after market close.
-			percentChange, err = strconv.ParseFloat(p.Cp, 64)
+			percentChange, err = parseFloat(p.Cp)
 			if err != nil {
 				return nil, fmt.Errorf("p: %+v percentChange: %v", p, err)
 			}
@@ -374,6 +374,11 @@ func getLiveTradingSessions(symbols []string) ([]liveTradingSession, error) {
 	}
 
 	return lts, nil
+}
+
+// parseFloat removes commas and then calls parseFloat.
+func parseFloat(value string) (float64, error) {
+	return strconv.ParseFloat(strings.Replace(value, ",", "", -1), 64)
 }
 
 // sortableTradingSessions is a sortable tradingSession slice.
