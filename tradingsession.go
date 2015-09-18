@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"sort"
@@ -15,11 +16,28 @@ import (
 // tradingSessionSource is a source of trading sessions.
 type tradingSessionSource string
 
-// List of possible dataSources.
+// List of possible tradingSessionSource values.
 const (
 	google tradingSessionSource = "google"
-	yahoo  tradingSessionSource = "yahoo"
+	yahoo                       = "yahoo"
+	random                      = "random"
 )
+
+// tradingSessionFunc is a function that returns tradingSessions.
+type tradingSessionFunc func(symbol string, startDate, endDate time.Time) ([]tradingSession, error)
+
+func getTradingSessionFunc(source tradingSessionSource) (tradingSessionFunc, error) {
+	switch source {
+	case google:
+		return getTradingSessionsFromGoogle, nil
+	case yahoo:
+		return getTradingSessionsFromYahoo, nil
+	case random:
+		return getTradingSessionsFromRandom, nil
+	default:
+		return nil, fmt.Errorf("unrecognized value: %s", source)
+	}
+}
 
 // tradingSession contains stats from a single trading session.
 type tradingSession struct {
@@ -31,20 +49,26 @@ type tradingSession struct {
 	volume int64
 }
 
-func getTradingSessions(symbol string, startDate, endDate time.Time) ([]tradingSession, error) {
-	tradingFuncs := map[tradingSessionSource]func(symbol string, startDate, endDate time.Time) ([]tradingSession, error){
-		google: getTradingSessionsFromGoogle,
-		yahoo:  getTradingSessionsFromYahoo,
+func getTradingSessionsFromRandom(symbol string, startDate, endDate time.Time) ([]tradingSession, error) {
+	randomSources := []tradingSessionSource{
+		google,
+		yahoo,
 	}
-	for ds, tf := range tradingFuncs {
-		th, err := tf(symbol, startDate, endDate)
+	for _, v := range rand.Perm(len(randomSources)) {
+		s := randomSources[v]
+		getTradingSessions, err := getTradingSessionFunc(s)
 		if err != nil {
-			log.Printf("tradingFunc %s: %v", ds, err)
+			return nil, err
+		}
+
+		tss, err := getTradingSessions(symbol, startDate, endDate)
+		if err != nil {
+			log.Printf("tradingFunc %s: %v", s, err)
 			continue
 		}
-		return th, nil
+		return tss, nil
 	}
-	return nil, fmt.Errorf("all %d tradingFuncs failed", len(tradingFuncs))
+	return nil, fmt.Errorf("all %d tradingFuncs failed", len(randomSources))
 }
 
 func getTradingSessionsFromGoogle(symbol string, startDate, endDate time.Time) ([]tradingSession, error) {

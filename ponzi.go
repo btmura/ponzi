@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"math"
@@ -11,6 +12,14 @@ import (
 	"time"
 
 	"github.com/nsf/termbox-go"
+)
+
+var (
+	// dataSource is a flag to set what data source to use.
+	dataSource = flag.String("data_source", string(google), "Data source to get quotes. Values: google, yahoo")
+
+	// getTradingSessions is the tradingSessionFunc set by the dataSource flag.
+	getTradingSessions tradingSessionFunc
 )
 
 const (
@@ -101,12 +110,22 @@ type stockTradingSession struct {
 func main() {
 	var err error
 
+	// Parse flags. Do initialization that we can do before termbox starts.
+	flag.Parse()
+
+	getTradingSessions, err = getTradingSessionFunc(tradingSessionSource(*dataSource))
+	if err != nil {
+		log.Fatalf("getTradingSessionFunc: %v", err)
+	}
+
+	// Redirect the logger since termbox will cover the screen.
 	logFile, err := initLogger()
 	if err != nil {
 		log.Fatalf("initLogger: %v", err)
 	}
 	defer logFile.Close()
 
+	// Try to initialize termbox now.
 	if err := termbox.Init(); err != nil {
 		log.Fatalf("termbox.Init: %v", err)
 	}
