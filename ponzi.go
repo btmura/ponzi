@@ -411,8 +411,11 @@ loop:
 }
 
 func refreshStockData(sd *stockData, oneSymbol string) {
-	end := time.Now()
-	start := end.Add(-time.Hour * 24 * 30)
+	// start and end times to set on the data requests.
+	var (
+		end   = midnight(time.Now().In(newYorkLoc))
+		start = end.Add(-30 * 24 * time.Hour)
+	)
 
 	// Map from symbol to tradingSessions channel.
 	chm := map[string]chan []tradingSession{}
@@ -551,7 +554,7 @@ func convertLiveTradingSessions(lts []liveTradingSession) map[string]stockTradin
 	m := map[string]stockTradingSession{}
 	for _, lt := range lts {
 		m[lt.symbol] = stockTradingSession{
-			date:          time.Date(lt.timestamp.Year(), lt.timestamp.Month(), lt.timestamp.Day(), 0, 0, 0, 0, lt.timestamp.Location()),
+			date:          midnight(lt.timestamp),
 			close:         lt.price,
 			change:        lt.change,
 			percentChange: lt.percentChange,
