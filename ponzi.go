@@ -297,7 +297,7 @@ loop:
 			}
 
 			if i+symbolOffset == selectedIndex {
-				fg = termbox.ColorYellow
+				fg = termbox.ColorYellow | termbox.AttrBold
 			} else {
 				fg = termbox.ColorDefault
 			}
