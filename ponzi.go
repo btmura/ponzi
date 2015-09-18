@@ -336,7 +336,7 @@ loop:
 			case termbox.KeyCtrlC, termbox.KeyCtrlD:
 				break loop
 
-			case termbox.KeyCtrlR:
+			case termbox.KeyCtrlR, termbox.KeyF5:
 				refreshStockData(sd, "")
 
 			// TODO(btmura): remove code duplication with KeyArrowDown.
