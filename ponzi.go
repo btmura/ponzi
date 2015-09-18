@@ -227,7 +227,7 @@ loop:
 			const indexSymbolWidth = 8
 			print(0, 0, "%s %[2]*s %.2f %+.2f %+.2f%% "+
 				"%[7]*s %.2f %+.2f %+.2f%% "+
-				"%[12]*s %.2f %+.2f %+.2f%% %s",
+				"%[12]*s %.2f %+.2f %+.2f%%",
 
 				sd.refreshTime.Format("1/2/06 3:04 PM"),
 
@@ -244,11 +244,7 @@ loop:
 				indexSymbolWidth, "NASDAQ",
 				sd.nasdaq.close,
 				sd.nasdaq.change,
-				sd.nasdaq.percentChange*100.0,
-
-				inputSymbol)
-		} else {
-			print(0, 0, inputSymbol)
+				sd.nasdaq.percentChange*100.0)
 		}
 
 		// Trim down trading dates to what fits the screen.
@@ -362,6 +358,17 @@ loop:
 		}
 
 		sd.RUnlock()
+
+		// Print out the input symbol in the center of the screen.
+		if inputSymbol != "" {
+			fg, bg = termbox.ColorWhite, termbox.ColorBlue
+			ps := strings.Repeat(" ", padding)
+			pr := ps + strings.Repeat(" ", len(inputSymbol)) + ps
+			cx, cy := w/2-len(pr)/2, h/2-1
+			print(cx, cy-1, pr)
+			print(cx, cy, ps+inputSymbol+ps)
+			print(cx, cy+1, pr)
+		}
 
 		if err := termbox.Flush(); err != nil {
 			log.Fatalf("termbox.Flush: %v", err)
