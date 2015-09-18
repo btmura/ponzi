@@ -2,14 +2,18 @@ package main
 
 import (
 	"encoding/csv"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
 	"net/url"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -274,6 +278,100 @@ func getTradingSessionsFromYahoo(symbol string, startDate, endDate time.Time) ([
 	sort.Reverse(sortableTradingSessions(tss))
 
 	return tss, nil
+}
+
+type liveTradingSession struct {
+	symbol        string
+	timestamp     time.Time
+	price         float64
+	change        float64
+	percentChange float64
+}
+
+func getLiveTradingSessions(symbols []string) ([]liveTradingSession, error) {
+	v := url.Values{}
+	v.Set("client", "ig")
+	v.Set("q", strings.Join(symbols, ","))
+
+	u, err := url.Parse("http://www.google.com/finance/info")
+	if err != nil {
+		return nil, err
+	}
+	u.RawQuery = v.Encode()
+	log.Printf("GET %s", u)
+
+	resp, err := http.Get(u.String())
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	parsed := []struct {
+		T      string // ticker symbol
+		L      string // price
+		C      string // change
+		Cp     string // percent change
+		Lt_dts string // time
+	}{}
+
+	data, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check that data has the expected "//" comment string to trim off.
+	if len(data) < 3 {
+		return nil, fmt.Errorf("expected data should be larger")
+	}
+
+	// Unmarshal the data after the "//" comment string.
+	if err := json.Unmarshal(data[3:], &parsed); err != nil {
+		return nil, err
+	}
+
+	if len(parsed) == 0 {
+		return nil, errors.New("expected at least one entry")
+	}
+
+	var lts []liveTradingSession
+	for _, p := range parsed {
+		timestamp, err := time.Parse("2006-01-02T15:04:05Z", p.Lt_dts)
+		if err != nil {
+			return nil, fmt.Errorf("p: %+v timestamp: %v", p, err)
+		}
+
+		price, err := strconv.ParseFloat(p.L, 64)
+		if err != nil {
+			return nil, fmt.Errorf("p: %+v price: %v", p, err)
+		}
+
+		var change float64
+		if p.C != "" { // C is empty after market close.
+			change, err = strconv.ParseFloat(p.C, 64)
+			if err != nil {
+				return nil, fmt.Errorf("p: %+v change: %v", p, err)
+			}
+		}
+
+		var percentChange float64
+		if p.Cp != "" { // Cp is empty after market close.
+			percentChange, err = strconv.ParseFloat(p.Cp, 64)
+			if err != nil {
+				return nil, fmt.Errorf("p: %+v percentChange: %v", p, err)
+			}
+			percentChange /= 100.0
+		}
+
+		lts = append(lts, liveTradingSession{
+			symbol:        p.T,
+			timestamp:     timestamp,
+			price:         price,
+			change:        change,
+			percentChange: percentChange,
+		})
+	}
+
+	return lts, nil
 }
 
 // sortableTradingSessions is a sortable tradingSession slice.
