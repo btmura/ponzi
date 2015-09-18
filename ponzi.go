@@ -92,7 +92,22 @@ type stockData struct {
 
 	// stocks are stock symbols with trading session data.
 	stocks []stock
+
+	dow    stockTradingSession
+	sap    stockTradingSession
+	nasdaq stockTradingSession
 }
+
+var (
+	dowSymbol    = ".DJI"
+	sapSymbol    = ".INX"
+	nasdaqSymbol = ".IXIC"
+	indexSymbols = []string{
+		dowSymbol,
+		sapSymbol,
+		nasdaqSymbol,
+	}
+)
 
 type stock struct {
 	symbol            string
@@ -209,10 +224,32 @@ loop:
 		sd.RLock()
 
 		if !sd.refreshTime.IsZero() {
-			print(0, 0, sd.refreshTime.Format("1/2/06 3:04 PM"))
-		}
+			const indexSymbolWidth = 8
+			print(0, 0, "%s %[2]*s %.2f %+.2f %+.2f%% "+
+				"%[7]*s %.2f %+.2f %+.2f%% "+
+				"%[12]*s %.2f %+.2f %+.2f%% %s",
 
-		print(20, 0, inputSymbol)
+				sd.refreshTime.Format("1/2/06 3:04 PM"),
+
+				indexSymbolWidth, "DOW",
+				sd.dow.close,
+				sd.dow.change,
+				sd.dow.percentChange*100.0,
+
+				indexSymbolWidth, "S&P",
+				sd.sap.close,
+				sd.sap.change,
+				sd.sap.percentChange*100.0,
+
+				indexSymbolWidth, "NASDAQ",
+				sd.nasdaq.close,
+				sd.nasdaq.change,
+				sd.nasdaq.percentChange*100.0,
+
+				inputSymbol)
+		} else {
+			print(0, 0, inputSymbol)
+		}
 
 		// Trim down trading dates to what fits the screen.
 		tsColumnCount := (w - symbolColumnWidth - padding) / (tsColumnWidth + padding)
@@ -455,15 +492,25 @@ func refreshStockData(sd *stockData, oneSymbol string) {
 		sd.RUnlock()
 	}
 
-	// Get the live trading trading sessions while we wait for the other requests.
+	// Get the live trading sessions for the stocks.
 	ch := make(chan []liveTradingSession)
-	go func(chan []liveTradingSession) {
+	go func(ch chan []liveTradingSession) {
 		tss, err := getLiveTradingSessions(symbols)
 		if err != nil {
 			log.Printf("getLiveTradingSessions: %v", err)
 		}
 		ch <- tss
 	}(ch)
+
+	// Get the live trading sessions for the major indices.
+	ich := make(chan []liveTradingSession)
+	go func(ch chan []liveTradingSession) {
+		tss, err := getLiveTradingSessions(indexSymbols)
+		if err != nil {
+			log.Printf("getLiveTradingSessions: %v", err)
+		}
+		ch <- tss
+	}(ich)
 
 	// dates is the sorted set of trading dates that will be shown at the top.
 	// Use addDate to correctly modify the dates.
@@ -511,6 +558,9 @@ func refreshStockData(sd *stockData, oneSymbol string) {
 		addTradingSession(symbol, ts)
 	}
 
+	// Extract the live trading sessions for the indices.
+	im := convertLiveTradingSessions(<-ich)
+
 	// Sort the trading dates with most recent at the back.
 	sort.Sort(dates)
 
@@ -526,6 +576,9 @@ func refreshStockData(sd *stockData, oneSymbol string) {
 			sd.stocks[i].tradingSessionMap[date] = ts
 		}
 	}
+	sd.dow = im[dowSymbol]
+	sd.sap = im[sapSymbol]
+	sd.nasdaq = im[nasdaqSymbol]
 	sd.Unlock()
 }
 
