@@ -224,27 +224,28 @@ loop:
 		sd.RLock()
 
 		if !sd.refreshTime.IsZero() {
-			const indexSymbolWidth = 8
-			print(0, 0, "%s %[2]*s %.2f %+.2f %+.2f%% "+
-				"%[7]*s %.2f %+.2f %+.2f%% "+
-				"%[12]*s %.2f %+.2f %+.2f%%",
+			const indexSymbolWidth = 6
+			print(0, 0, "%s %.2f %+.2f %+.2f%% "+
+				"%s %.2f %+.2f %+.2f%% "+
+				"%s %.2f %+.2f %+.2f%%",
 
-				sd.refreshTime.Format("1/2/06 3:04 PM"),
-
-				indexSymbolWidth, "DOW",
+				"DOW",
 				sd.dow.close,
 				sd.dow.change,
 				sd.dow.percentChange*100.0,
 
-				indexSymbolWidth, "S&P",
+				"S&P",
 				sd.sap.close,
 				sd.sap.change,
 				sd.sap.percentChange*100.0,
 
-				indexSymbolWidth, "NASDAQ",
+				"NASDAQ",
 				sd.nasdaq.close,
 				sd.nasdaq.change,
 				sd.nasdaq.percentChange*100.0)
+
+			s := sd.refreshTime.Format("1/2/06 3:04 PM")
+			print(w-len(s), 0, s)
 		}
 
 		// Trim down trading dates to what fits the screen.
