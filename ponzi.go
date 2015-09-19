@@ -205,45 +205,81 @@ func main() {
 		}
 	}()
 
+	// Variables and functions to set colors and print to the screen.
+	var (
+		fg, bg termbox.Attribute
+
+		resetColors = func() {
+			fg, bg = termbox.ColorDefault, termbox.ColorDefault
+		}
+
+		setFgColor = func(ts stockTradingSession) {
+			switch {
+			case ts.change > 0:
+				fg = termbox.ColorGreen
+			case ts.change < 0:
+				fg = termbox.ColorRed
+			default:
+				fg = termbox.ColorDefault
+			}
+		}
+
+		setBgColor = func(ts stockTradingSession) {
+			c := 0
+			absChange := math.Abs(ts.percentChange)
+			for ; c < len(colorLevels)-1; c++ {
+				if absChange < colorLevels[c+1] {
+					break
+				}
+			}
+
+			switch {
+			case has256Colors && ts.change > 0:
+				bg = positiveColors[c]
+			case has256Colors && ts.change < 0:
+				bg = negativeColors[c]
+			default:
+				bg = termbox.ColorDefault
+			}
+		}
+
+		print = func(x, y int, format string, a ...interface{}) int {
+			for _, rune := range fmt.Sprintf(format, a...) {
+				termbox.SetCell(x, y, rune, fg, bg)
+				x++
+			}
+			return x
+		}
+	)
+
 loop:
 	for {
 		if err := termbox.Clear(termbox.ColorDefault, termbox.ColorDefault); err != nil {
 			log.Fatalf("termbox.Clear: %v", err)
 		}
 
-		fg, bg := termbox.ColorDefault, termbox.ColorDefault
 		w, h := termbox.Size()
-
-		print := func(x, y int, format string, a ...interface{}) {
-			for _, rune := range fmt.Sprintf(format, a...) {
-				termbox.SetCell(x, y, rune, fg, bg)
-				x++
-			}
-		}
 
 		sd.RLock()
 
 		if !sd.refreshTime.IsZero() {
-			const indexSymbolWidth = 6
-			print(0, 0, "%s %.2f %+.2f %+.2f%% "+
-				"%s %.2f %+.2f %+.2f%% "+
-				"%s %.2f %+.2f %+.2f%%",
+			x := 0
 
-				"DOW",
-				sd.dow.close,
-				sd.dow.change,
-				sd.dow.percentChange*100.0,
+			printIndex := func(symbol string, ts stockTradingSession) int {
+				resetColors()
+				x = print(x, 0, " %s ", symbol)
 
-				"S&P",
-				sd.sap.close,
-				sd.sap.change,
-				sd.sap.percentChange*100.0,
+				setBgColor(ts)
+				x = print(x, 0, " %.2f ", ts.close)
+				x = print(x, 0, "%+.2f %+.2f%% ", ts.change, ts.percentChange*100.0)
+				return x
+			}
 
-				"NASDAQ",
-				sd.nasdaq.close,
-				sd.nasdaq.change,
-				sd.nasdaq.percentChange*100.0)
+			x = printIndex("DOW", sd.dow)
+			x = printIndex("S&P", sd.sap)
+			x = printIndex("NASDAQ", sd.nasdaq)
 
+			resetColors()
 			s := sd.refreshTime.Format("1/2/06 3:04 PM")
 			print(w-len(s), 0, s)
 		}
@@ -315,37 +351,13 @@ loop:
 				if ts, ok := s.tradingSessionMap[td]; ok {
 					fg = termbox.ColorDefault
 
-					c := 0
-					absChange := math.Abs(ts.percentChange)
-					for ; c < len(colorLevels)-1; c++ {
-						if absChange < colorLevels[c+1] {
-							break
-						}
-					}
-
-					switch {
-					case has256Colors && ts.change > 0:
-						bg = positiveColors[c]
-					case has256Colors && ts.change < 0:
-						bg = negativeColors[c]
-					default:
-						bg = termbox.ColorDefault
-					}
-
 					// Print price and volume in default color.
+					setBgColor(ts)
 					print(x, y, "%[1]*.2f", tsColumnWidth, ts.close)
 					print(x, y+3, "%[1]*s", tsColumnWidth, shortenInt(ts.volume))
 
-					switch {
-					case ts.change > 0:
-						fg = termbox.ColorGreen
-					case ts.change < 0:
-						fg = termbox.ColorRed
-					default:
-						fg = termbox.ColorDefault
-					}
-
 					// Print change and % change in green or red.
+					setFgColor(ts)
 					print(x, y+1, "%+[1]*.2f", tsColumnWidth, ts.change)
 					print(x, y+2, "%+[1]*.2f%%", tsColumnWidth-1, ts.percentChange*100.0)
 				} else {
