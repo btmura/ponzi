@@ -433,10 +433,11 @@ loop:
 
 					// Expand the slice, shift from selected index, and insert into the middle.
 					sd.stocks = append(sd.stocks, stock{})
-					copy(sd.stocks[selectedIndex+1:], sd.stocks[selectedIndex:])
-					sd.stocks[selectedIndex] = stock{symbol: inputSymbol}
+					copy(sd.stocks[selectedIndex+2:], sd.stocks[selectedIndex+1:])
+					sd.stocks[selectedIndex+1] = stock{symbol: inputSymbol}
 
 					saveStockData(sd)
+					selectedIndex++
 					sd.Unlock()
 
 					// Get initial data for the new stock.
