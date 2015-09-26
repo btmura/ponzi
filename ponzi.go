@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"github.com/nsf/termbox-go"
 )
@@ -462,7 +463,9 @@ loop:
 				}
 
 			default:
-				inputSymbol += strings.ToUpper(string(ev.Ch))
+				if unicode.IsLetter(ev.Ch) {
+					inputSymbol += strings.ToUpper(string(ev.Ch))
+				}
 			}
 		}
 	}
