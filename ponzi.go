@@ -166,10 +166,6 @@ func main() {
 		})
 	}
 
-	inputSymbol := ""
-	selectedIndex := 0
-	symbolOffset := 0
-
 	// Launch a go routine to periodically refresh the stock data.
 	go func() {
 		// refreshDuration is the duration until the next refresh.
@@ -253,6 +249,20 @@ func main() {
 		}
 	)
 
+	var (
+		// inputSymbol is the symbol the user is typing in.
+		inputSymbol string
+
+		// selectedIndex is the selected index of the user's stock list.
+		selectedIndex int
+
+		// prevHeight tracks the previous height to detect window height changes.
+		prevHeight int
+
+		// symbolOffset is the graphical offset to keep the selected index on-screen.
+		symbolOffset int
+	)
+
 loop:
 	for {
 		if err := termbox.Clear(termbox.ColorDefault, termbox.ColorDefault); err != nil {
@@ -318,6 +328,12 @@ loop:
 		getY := func(row int) int {
 			return startY + (tsColumnHeight+padding)*row
 		}
+
+		// Reset the offset when the height changes to keep the screen filled.
+		if h != prevHeight {
+			symbolOffset = 0
+		}
+		prevHeight = h
 
 		// Adjust the offset so that the selectedIndex is visible.
 		for getY(selectedIndex-symbolOffset) < startY {
