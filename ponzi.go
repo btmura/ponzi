@@ -448,13 +448,19 @@ loop:
 				if inputSymbol != "" {
 					sd.Lock()
 
-					// Expand the slice, shift from selected index, and insert into the middle.
+					// Expand the slice and insert at the selected index.
 					sd.stocks = append(sd.stocks, stock{})
-					copy(sd.stocks[selectedIndex+2:], sd.stocks[selectedIndex+1:])
-					sd.stocks[selectedIndex+1] = stock{symbol: inputSymbol}
+					copy(sd.stocks[selectedIndex+1:], sd.stocks[selectedIndex:])
+					sd.stocks[selectedIndex] = stock{symbol: inputSymbol}
+
+					// Swap with next element to simulate appending rather than insertion.
+					if selectedIndex+1 < len(sd.stocks) {
+						swapIndex := selectedIndex + 1
+						sd.stocks[selectedIndex], sd.stocks[swapIndex] = sd.stocks[swapIndex], sd.stocks[selectedIndex]
+					}
 
 					saveStockData(sd)
-					selectedIndex++
+					selectedIndex = (selectedIndex + 1) % len(sd.stocks)
 					sd.Unlock()
 
 					// Get initial data for the new stock.
